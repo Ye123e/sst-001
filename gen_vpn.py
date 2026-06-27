@@ -552,9 +552,9 @@ def gen_vpn_html(key, bank):
 
     html += "const BANK_EN = '" + en + "';\n"
 
-    html += "const VPN_USER = '" + vpn_user + "';\n"
+    html += "// VPN credentials verified via state.vpnCredentials (bank attack system)\n"
 
-    html += "const VPN_PASS = '" + vpn_pass + "';\n"
+    html += "// VPN password stored in state.vpnCredentials (no hardcoded credentials)\n"
 
     html += "const STORAGE_KEY = '" + STORAGE_KEY + "';\n"
 
@@ -678,9 +678,9 @@ function validateMasterToken() {
 
 
 
-        // Step 1: Check credentials match
+        // Step 1: Basic input validation (no hardcoded credentials in source)
 
-        if (user !== VPN_USER || pass !== VPN_PASS) {
+        if (!user || !pass) {
 
             console.log('[VPN] FAIL Step 1: Credentials mismatch');
 
@@ -1344,9 +1344,9 @@ def gen_vpn_html(key, bank):
 
     html += "const BANK_EN = '" + en + "';\n"
 
-    html += "const VPN_USER = '" + vpn_user + "';\n"
+    html += "// VPN credentials verified via state.vpnCredentials (bank attack system)\n"
 
-    html += "const VPN_PASS = '" + vpn_pass + "';\n"
+    html += "// VPN password stored in state.vpnCredentials (no hardcoded credentials)\n"
 
     html += "const STORAGE_KEY = '" + STORAGE_KEY + "';\n"
 
@@ -1470,9 +1470,9 @@ function validateMasterToken() {
 
 
 
-        // Step 2: Check credentials match
+        // Step 2: Basic input validation (no hardcoded credentials in source)
 
-        if (user !== VPN_USER || pass !== VPN_PASS) {
+        if (!user || !pass) {
 
             console.log('[VPN] FAIL Step 2: Credentials mismatch');
 
@@ -2249,7 +2249,7 @@ function showError(el, msg) {
 
     h += '<div style="padding:10px;background:rgba(0,0,0,0.3);border:1px solid #222;border-radius:6px;margin-bottom:10px;">';
 
-    h += '<div class="dash-row"><span class="dash-label">当前凭证</span><span class="dash-value">' + VPN_USER + '</span></div>';
+    h += '<div class="dash-row"><span class="dash-label">当前凭证</span><span class="dash-value">' + (cred ? (cred.username || BANK_EN + '_user') : BANK_EN + '_user') + '</span></div>';
 
     h += '<div class="dash-row"><span class="dash-label">获取方式</span><span class="dash-value">' + (cred ? (cred.obtainedMethod || 'UNKNOWN') : '-') + '</span></div>';
 

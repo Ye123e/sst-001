@@ -136,7 +136,7 @@ function checkMasterLock() {
     if (!raw) return { ok:false, msg:"未找到母锁令牌，请先打开投资模拟器" };
     var token = JSON.parse(raw);
     var now = Date.now();
-    if (now - token.time > 3600000) return { ok:false, msg:"母锁令牌已过期(>1小时)，请重新打开模拟器" };
+    if (now - token.ts > 3600000) return { ok:false, msg:"母锁令牌已过期(>1小时)，请重新打开模拟器" };
     return { ok:true, token:token };
   } catch(e) { return { ok:false, msg:"令牌解析失败" }; }
 }
@@ -237,6 +237,8 @@ function doLogin() {
   renderRepaySchedule();
 }
 
+function escapeHtml(str){ var d=document.createElement("div"); d.textContent=str||""; return d.innerHTML; }
+
 document.addEventListener("DOMContentLoaded", function() {
   renderLockChain();
   document.querySelectorAll(".nav-tab").forEach(function(tab) {
@@ -284,8 +286,8 @@ function renderProjects() {
     var riskClass = p.riskLevel.includes("高") ? "risk-high" : (p.riskLevel.includes("低") ? "risk-low" : "risk-mid");
     h += '<div class="project-card">';
     h += '<div class="proj-header">';
-    h += '<div><div class="proj-title">' + p.title + '</div>';
-    h += '<div class="proj-meta"><span>👤 ' + p.borrower + '</span><span>🎯 ' + p.purpose + '</span><span>⏱ ' + p.term + '个月</span></div></div>';
+    h += '<div><div class="proj-title">' + escapeHtml(p.title) + '</div>';
+    h += '<div class="proj-meta"><span>👤 ' + escapeHtml(p.borrower) + '</span><span>🎯 ' + escapeHtml(p.purpose) + '</span><span>⏱ ' + p.term + '个月</span></div></div>';
     h += '<div class="proj-rate"><div class="proj-rate-val">' + safeFixed(p.rate * 100, 1) + '%</div><div class="proj-rate-label">预期年化</div></div>';
     h += '</div>';
     h += '<div class="proj-progress"><div class="prog-bar"><div class="prog-fill" style="width:' + pct + '%;"></div></div></div>';
@@ -388,7 +390,7 @@ function renderMyInvestments() {
     var statusText = inv.status === "repaid" ? "已结清" : (inv.status === "defaulted" ? "已违约" : "回款中");
     var profitClass = inv.profit >= 0 ? "profit-pos" : "profit-neg";
     h += '<tr>';
-    '<td>' + inv.title + '</td>';
+    h += '<td>' + inv.title + '</td>';
     h += '<td>¥' + fmt(inv.amount) + '</td>';
     h += '<td>' + safeFixed(inv.rate * 100, 1) + '%</td>';
     h += '<td>' + inv.term + '月</td>';

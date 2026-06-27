@@ -62,7 +62,7 @@ body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif
 .claim-detail { font-size:11px;color:#888; }
 .btn-claim { padding:6px 16px;background:#4caf50;color:#fff;border:none;border-radius:5px;font-size:12px;cursor:pointer;margin-top:8px;font-weight:600; }
 .btn-claim:disabled { opacity:0.4;cursor:not-allowed; }
-.btn-claim:hover {notdisabled} { background:#43a047; }
+.btn-claim:hover:not(:disabled) { background:#43a047; }
 .acct-summary { background:#131823;border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:18px;margin-bottom:14px; }
 .acct-row { display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:13px; }
 .acct-row:last-child { border-bottom:none; }
@@ -129,7 +129,7 @@ function checkMasterLock() {
     var raw = localStorage.getItem("invest_sim_master");
     if (!raw) return { ok:false, msg:"未找到母锁令牌，请先打开投资模拟器" };
     var token = JSON.parse(raw);
-    if (Date.now() - token.time > 3600000) return { ok:false, msg:"母锁令牌已过期(>1小时)，请重新打开模拟器" };
+    if (Date.now() - token.ts > 3600000) return { ok:false, msg:"母锁令牌已过期(>1小时)，请重新打开模拟器" };
     return { ok:true, token:token };
   } catch(e) { return { ok:false, msg:"令牌解析失败" }; }
 }
@@ -180,6 +180,8 @@ function doLogin() {
   renderClaims();
 }
 
+function escapeHtml(str){ var d=document.createElement("div"); d.textContent=str||""; return d.innerHTML; }
+
 document.addEventListener("DOMContentLoaded", function() {
   renderLockChain();
   document.querySelectorAll(".nav-tab").forEach(function(tab) {
@@ -222,9 +224,9 @@ function renderProducts() {
     var typeNames = {"health":"医疗","property":"财产","accident":"意外","life":"寿险","vehicle":"车险","investment":"投资"};
     var tName = typeNames[prod.type] || prod.type;
     h += '<div class="prod-card">';
-    h += '<div class="prod-header"><div><div class="prod-name">' + prod.name + '</div>';
+    h += '<div class="prod-header"><div><div class="prod-name">' + escapeHtml(prod.name) + '</div>';
     h += '<span class="prod-type-badge">' + tName + '险</span></div></div>';
-    h += '<div class="prod-desc">' + prod.desc + '</div>';
+    h += '<div class="prod-desc">' + escapeHtml(prod.desc) + '</div>';
     h += '<div class="prod-specs">';
     h += '<div class="prod-spec"><span class="spec-label">保障期限</span><span class="spec-value">' + prod.term + '个月</span></div>';
     h += '<div class="prod-spec"><span class="spec-label">保额范围</span><span class="spec-value">¥' + fmt(prod.coverage_range[0]) + ' - ¥' + fmt(maxCov) + '</span></div>';
@@ -294,7 +296,7 @@ function renderPolicies() {
   d.policies.forEach(function(p) {
     var stClass = p.status === "active" ? "status-active" : (p.status === "expired" ? "status-expired" : "status-claimed");
     var stText = p.status === "active" ? "生效中" : (p.status === "expired" ? "已过期" : "已理赔");
-    h += '<tr><td>' + p.name + '</td><td>' + (typeNames[p.type]||p.type) + '</td><td>¥' + fmt(p.coverage) + '</td><td>¥' + fmt(p.annualPremium) + '</td><td>' + (p.remainingMonths||0) + '月</td><td class="'+stClass+'">' + stText + '</td></tr>';
+    h += '<tr><td>' + escapeHtml(p.name) + '</td><td>' + (typeNames[p.type]||p.type) + '</td><td>¥' + fmt(p.coverage) + '</td><td>¥' + fmt(p.annualPremium) + '</td><td>' + (p.remainingMonths||0) + '月</td><td class="'+stClass+'">' + stText + '</td></tr>';
   });
   tbody.innerHTML = h;
 }
@@ -315,8 +317,8 @@ function renderClaims() {
     h += '<div style="margin-bottom:14px;"><b style="font-size:13px;">待处理理赔</b></div>';
     existingClaims.forEach(function(cl) {
       h += '<div class="claim-item">';
-      h += '<div class="claim-header"><span class="claim-event">' + cl.eventName + '</span><span class="claim-amount">¥' + fmt(cl.claimAmount) + '</span></div>';
-      h += '<div class="claim-detail">保单: ' + cl.policyName + ' | 发生回合: ' + (cl.round||"?") + ' | 状态: ' + (cl.status==="pending"?"待申请":cl.status) + '</div>';
+      h += '<div class="claim-header"><span class="claim-event">' + escapeHtml(cl.eventName) + '</span><span class="claim-amount">¥' + fmt(cl.claimAmount) + '</span></div>';
+      h += '<div class="claim-detail">保单: ' + escapeHtml(cl.policyName) + ' | 发生回合: ' + (cl.round||"?") + ' | 状态: ' + (cl.status==="pending"?"待申请":cl.status) + '</div>';
       if (cl.status === "pending") {
         h += '<button class="btn-claim" onclick="submitClaim(\''+cl.id+'\')">申请理赔</button>';
       } else if (cl.status === "approved") {
@@ -382,20 +384,6 @@ function createAndSubmitClaim(eventName, eventType, lossCost, claimAmt, policyId
   d.claims.push(claim);
   saveState(s);
   alert("✅ 理赔已受理！\n事件: " + eventName + "\n赔款金额: ¥" + fmt(claimAmt) + "\n点击\"领取赔款\"到账");  renderOverview();
-  renderClaims();
-}
-
-function submitClaim(claimId) {
-  var lock = checkMasterLock();
-  if (!lock.ok) { alert("母锁验证失败: " + lock.msg); return; }
-  var s = loadState(); if (!s) return;
-  var d = getInsData(s);
-  var claim = (d.claims||[]).find(function(c){return c.id === claimId;});
-  if (!claim || claim.status !== "pending") { alert("该理赔不可提交"); return; }
-  claim.status = "approved";
-  saveState(s);
-  alert("✅ 理赔已提交！\n事件: " + claim.eventName + "\n赔款金额: ¥" + fmt(claim.claimAmount) + "\n点击\"领取赔款\"到账");
-  renderOverview();
   renderClaims();
 }
 

@@ -290,6 +290,7 @@ def generate_broker_page(key, broker):
     html += 'function saveBrokerData(d){ var s=getState(); if(!s.brokerAccounts) s.brokerAccounts={}; s.brokerAccounts[BROKER_KEY]=d; saveState(s); }\n'
     html += 'function addOrder(order){ var d=getBrokerData(); d.orders.unshift(order); if(d.orders.length>200)d.orders=d.orders.slice(0,200); saveBrokerData(d); }\n'
     html += 'function getOrders(){ return getBrokerData().orders||[]; }\n'
+    html += 'function escapeHtml(str){ var d=document.createElement("div"); d.textContent=str||""; return d.innerHTML; }\n'
 
     # Master token validation (same as banks)
     html += 'function validateMasterToken(){\n'
@@ -547,7 +548,7 @@ def generate_broker_page(key, broker):
     html += '    var pnl = a.amount * (price - cost);\n'
     html += '    var retPct = cost > 0 ? ((price - cost)/cost*100) : 0;\n'
     html += '    h += "<tr>";\n'
-    html += '    h += "<td>"+getStockName(sk)+"</td>";\n'
+    html += '    h += "<td>"+escapeHtml(getStockName(sk))+"</td>";\n'
     html += '    h += "<td>"+a.amount+"</td>";\n'
     html += '    h += "<td>"+fmt(cost)+"</td>";\n'
     html += '    h += "<td>"+fmt(price)+"</td>";\n'
@@ -573,7 +574,7 @@ def generate_broker_page(key, broker):
     html += '    var tstr = d.getFullYear()+"/"+("0"+(d.getMonth()+1)).slice(-2)+"/"+("0"+d.getDate()).slice(-2)+" "+("0"+d.getHours()).slice(-2)+":"+("0"+d.getMinutes()).slice(-2);\n'
     html += '    h += \'<div class="order-item">\';\n'
     html += '    h += \'<div class="order-header"><span class="order-type \'+o.side+\'">\'+(isBuy?"买入":"卖出")+\'</span><span class="order-amount">\'+fmt(o.quantity*o.price)+\'</span></div>\';\n'
-    html += '    h += \'<div class="order-detail">\'+o.name+\' · \'+o.quantity+\'股 × \'+fmt(o.price)+\' · 佣金 \'+fmt(o.commission)+\' · 第\'+o.round+\'回合 · \'+tstr+\'</div>\';\n'
+    html += '    h += \'<div class="order-detail">\'+escapeHtml(o.name)+\' · \'+o.quantity+\'股 × \'+fmt(o.price)+\' · 佣金 \'+fmt(o.commission)+\' · 第\'+o.round+\'回合 · \'+tstr+\'</div>\';\n'
     html += '    h += "</div>";\n'
     html += '  }\n'
     html += '  container.innerHTML = h;\n'

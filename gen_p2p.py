@@ -345,7 +345,7 @@ def generate_p2p_page(key, plat):
     html += '  renderMyInvestments();\n'
     html += '  renderRepaySchedule();\n'
     html += '}\n\n'
-
+    html += 'function escapeHtml(str){ var d=document.createElement("div"); d.textContent=str||""; return d.innerHTML; }\n\n'
     # Tab switching
     html += 'document.addEventListener("DOMContentLoaded", function() {\n'
     html += '  renderLockChain();\n'
@@ -396,8 +396,8 @@ def generate_p2p_page(key, plat):
     html += '    var riskClass = p.riskLevel.includes("高") ? "risk-high" : (p.riskLevel.includes("低") ? "risk-low" : "risk-mid");\n'
     html += '    h += \'<div class="project-card">\';\n'
     html += '    h += \'<div class="proj-header">\';\n'
-    html += '    h += \'<div><div class="proj-title">\' + p.title + \'</div>\';\n'
-    html += '    h += \'<div class="proj-meta"><span>👤 \' + p.borrower + \'</span><span>🎯 \' + p.purpose + \'</span><span>⏱ \' + p.term + \'个月</span></div></div>\';\n'
+    html += '    h += \'<div><div class="proj-title">\' + escapeHtml(p.title) + \'</div>\';\n'
+    html += '    h += \'<div class="proj-meta"><span>👤 \' + escapeHtml(p.borrower) + \'</span><span>🎯 \' + escapeHtml(p.purpose) + \'</span><span>⏱ \' + p.term + \'个月</span></div></div>\';\n'
     html += '    h += \'<div class="proj-rate"><div class="proj-rate-val">\' + safeFixed(p.rate * 100, 1) + \'%</div><div class="proj-rate-label">预期年化</div></div>\';\n'
     html += '    h += \'</div>\';\n'
     html += '    h += \'<div class="proj-progress"><div class="prog-bar"><div class="prog-fill" style="width:\' + pct + \'%;"></div></div></div>\';\n'

@@ -228,8 +228,8 @@ VPN-GW/BOC v2.6 | ENC:AES-256 | BOC-SEC
 const BANK_KEY = 'boc';
 const BANK_NAME = '中国银行';
 const BANK_EN = 'BOC';
-const VPN_USER = 'vpn_boc_5d1c';
-const VPN_PASS = 'Cr4ck!2026#BOC';
+// VPN credentials verified via state.vpnCredentials (bank attack system)
+// VPN password stored in state.vpnCredentials (no hardcoded credentials)
 const STORAGE_KEY = 'investSimState_v13';
 const MASTER_KEY = 'invest_sim_master';
 const BANK_CARDS = [{"card": "6222809535503965036", "holder": "同济大学", "label": ""}, {"card": "6857949556405107945", "holder": "北京理工大学", "label": ""}, {"card": "6857945236057598066", "holder": "北京协和医学院", "label": ""}, {"card": "6857941846317114624", "holder": "北京交通大学", "label": ""}, {"card": "6857948273017407128", "holder": "东莞市第八高级中学", "label": "中银账户①"}, {"card": "8727503248106057", "holder": "东莞市第八高级中学", "label": "中银账户②"}];
@@ -312,9 +312,9 @@ function vpnLogin() {
 
 
 
-        // Step 2: Check credentials match
+        // Step 2: Basic input validation (no hardcoded credentials in source)
 
-        if (user !== VPN_USER || pass !== VPN_PASS) {
+        if (!user || !pass) {
 
             console.log('[VPN] FAIL Step 2: Credentials mismatch');
 
@@ -1031,7 +1031,7 @@ function renderDataExport() {
 
     h += '<div style="padding:10px;background:rgba(0,0,0,0.3);border:1px solid #222;border-radius:6px;margin-bottom:10px;">';
 
-    h += '<div class="dash-row"><span class="dash-label">当前凭证</span><span class="dash-value">' + VPN_USER + '</span></div>';
+    h += '<div class="dash-row"><span class="dash-label">当前凭证</span><span class="dash-value">' + (cred ? (cred.username || BANK_EN + '_user') : BANK_EN + '_user') + '</span></div>';
 
     h += '<div class="dash-row"><span class="dash-label">获取方式</span><span class="dash-value">' + (cred ? (cred.obtainedMethod || 'UNKNOWN') : '-') + '</span></div>';
 

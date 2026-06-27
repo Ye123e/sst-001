@@ -186,6 +186,7 @@ function getCredits(){ return getState().cardCredits || {}; }
 function saveBalancesAndCredits(b,c){ var s=getState(); s.cardBalances=b; s.cardCredits=c; saveState(s); }
 function getRecords(){ return getState().transferRecords || []; }
 function addRecord(r){ var s=getState(); var recs=s.transferRecords||[]; recs.unshift(r); if(recs.length>100)recs=recs.slice(0,100); s.transferRecords=recs; saveState(s); }
+function escapeHtml(str){ var d=document.createElement("div"); d.textContent=str||""; return d.innerHTML; }
 function getCardBal(card,cur){ var b=getBalances()[card]; if(!b) return 0; if(typeof b==="number") return cur==="CNY"?b:0; return b[cur]||0; }
 function setCardBal(card,cur,val){ var bs=getBalances(); if(!bs[card]||typeof bs[card]==="number"){ var old=bs[card]||0; bs[card]={CNY:typeof old==="number"?old:0,HKD:0,USD:0}; } bs[card][cur]=val; var s=getState(); s.cardBalances=bs; saveState(s); }
 function validateMasterToken(){
@@ -423,8 +424,8 @@ function renderTransferRecords(){
     var feeStr = (r.fee && r.fee > 0) ? " | 手续费 ¥"+r.fee.toFixed(2) : "（免手续费）";
     var creditStr = r.creditChanged ? ' | <span class="tf-record-credit">信用 '+r.credit.toFixed(1)+'</span>' : "";
     h += '<div class="tf-record-item">';
-    h += '<div class="tf-record-header"><span class="tf-record-name">'+prefix+r.name+'</span><span class="tf-record-amount '+amountClass+'">'+(isOut?"-":"+")+"¥"+r.amount.toFixed(2)+'</span></div>';
-    h += '<div class="tf-record-bank">'+r.bankType+' · '+cardStr+(r.source?" · 来自"+r.source:"")+'</div>';
+    h += '<div class="tf-record-header"><span class="tf-record-name">'+prefix+escapeHtml(r.name)+'</span><span class="tf-record-amount '+amountClass+'">'+(isOut?"-":"+")+"¥"+r.amount.toFixed(2)+'</span></div>';
+    h += '<div class="tf-record-bank">'+escapeHtml(r.bankType)+' · '+cardStr+(r.source?" · 来自"+escapeHtml(r.source):"")+'</div>';
     h += '<div class="tf-record-time">'+timeStr+feeStr+creditStr+'</div>';
     h += '</div>';
   }
@@ -560,7 +561,7 @@ function showTfErr(msg){
   </div>
   <div style="position:absolute;bottom:14px;left:28px;right:28px;display:flex;justify-content:space-between;font-size:11px;color:#bbb;">
     <span>InvestSim 支票系统 v1.0 | 仅供投资模拟使用</span>
-    <span>Generated: 2026-06-22</span>
+    <span>Generated: 2026-06-27</span>
   </div>
 </div>
 </body>

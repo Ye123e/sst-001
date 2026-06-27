@@ -165,7 +165,7 @@ body { font-family: -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","M
   <div class="success-msg" id="tradeSuccess"></div>
   <div class="trade-buttons">
     <button class="buy-btn" id="buyBtn" onclick="executeTrade('buy')">📈 买入</button>
-    <    <button class="sell-btn" id="sellBtn" onclick="executeTrade('sell')">📉 卖出</button>
+    <button class="sell-btn" id="sellBtn" onclick="executeTrade('sell')">📉 卖出</button>
   </div>
 </div>
 </div>
@@ -199,31 +199,14 @@ function getState(){ try{ var r=localStorage.getItem("investSimState_v13"); if(!
 function saveState(s){ try{ localStorage.setItem("investSimState_v13", JSON.stringify(s)); }catch(e){} }
 function getBalances(){ return getState().cardBalances || {}; }
 function getCredits(){ return getState().cardCredits || {}; }
-function getAssets(){
-  var s=getState();
-  var raw = s.assets;
-  if(!raw) return null;
-  // invest-sim.html saves assets as array [{id:'tech',price:10,holding:0,avgCost:0},...]
-  // Convert to object format {tech:{price:10,amount:0,avgCost:0},...} for broker pages
-  if(Array.isArray(raw)){
-    var obj = {};
-    for(var i=0;i<raw.length;i++){
-      var a = raw[i];
-      if(a && a.id){
-        obj[a.id] = { price: a.price||0, amount: a.holding||0, avgCost: a.avgCost||0, totalCost: a.totalCost||0, returnRate: a.returnRate||0 };
-      }
-    }
-    return obj;
-  }
-  // Legacy object format support
-  return raw;
-}
+function getAssets(){ var s=getState(); if(s.assets) return s.assets; if(s.this && s.this.assets) return s.this.assets; return null; }
 function getRound(){ var s=getState(); return s.round || s.currentRound || 0; }
 function getCash(){ var s=getState(); return s.cash || 0; }
 function getBrokerData(){ var s=getState(); if(!s.brokerAccounts) s.brokerAccounts={}; if(!s.brokerAccounts[BROKER_KEY]) s.brokerAccounts[BROKER_KEY]={orders:[], openedAt: Date.now() }; return s.brokerAccounts[BROKER_KEY]; }
 function saveBrokerData(d){ var s=getState(); if(!s.brokerAccounts) s.brokerAccounts={}; s.brokerAccounts[BROKER_KEY]=d; saveState(s); }
 function addOrder(order){ var d=getBrokerData(); d.orders.unshift(order); if(d.orders.length>200)d.orders=d.orders.slice(0,200); saveBrokerData(d); }
 function getOrders(){ return getBrokerData().orders||[]; }
+function escapeHtml(str){ var d=document.createElement("div"); d.textContent=str||""; return d.innerHTML; }
 function validateMasterToken(){
   try{
     var raw = localStorage.getItem("invest_sim_master");
@@ -322,59 +305,29 @@ function executeTrade(side){
   var s = getState();
   var cash = s.cash || 0;
   var assets = s.assets;
-  var isArray = Array.isArray(assets);
   var amt = qty * price;
   var comm = Math.max(amt * BROKER_COMM, MIN_COMMISSION);
-
-  // Helper to find asset index in array format
-  function findAssetIdx(arr, id){ for(var i=0;i<arr.length;i++){ if(arr[i] && arr[i].id===id) return i; } return -1; }
-
   if(side === "buy"){
     var totalCost = amt + comm;
     if(cash < totalCost){ showTradeErr("资金不足！需要 "+fmt(totalCost)+"，可用现金 "+fmt(cash)); return; }
     cash -= totalCost;
     s.cash = cash;
-    if(isArray){
-      var idx = findAssetIdx(assets, selectedStock);
-      if(idx >= 0){
-        var a = assets[idx];
-        var oldTotal = (a.avgCost||0) * (a.holding||0);
-        a.holding = (a.holding||0) + qty;
-        a.avgCost = a.holding > 0 ? (oldTotal + price * qty) / a.holding : 0;
-        a.totalCost = (a.totalCost||0) + price * qty;
-      }
-    } else {
-      var asset = assets[selectedStock];
-      if(!asset.amount){ asset.amount = 0; asset.avgCost = 0; }
-      var oldTotal = asset.avgCost * asset.amount;
-      asset.amount += qty;
-      asset.avgCost = oldTotal / asset.amount + price * qty / asset.amount;
-    }
+    var asset = assets[selectedStock];
+    if(!asset.amount){ asset.amount = 0; asset.avgCost = 0; }
+    var oldTotal = asset.avgCost * asset.amount;
+    asset.amount += qty;
+    asset.avgCost = oldTotal / asset.amount + price * qty / asset.amount;
     addOrder({id:Date.now(), side:"buy", stock:selectedStock, name:getStockName(selectedStock), quantity:qty, price:price, commission:comm, round:getRound(), time:Date.now(), account:currentAccount.account});
     sucEl.textContent = "买入成功！"+qty+" 股 × "+fmt(price)+" = "+fmt(amt)+" （佣金 "+fmt(comm)+"）"; sucEl.style.display="block";
   }
   else if(side === "sell"){
-    var holdQty = 0;
-    if(isArray){
-      var sIdx = findAssetIdx(assets, selectedStock);
-      if(sIdx >= 0) holdQty = assets[sIdx].holding || 0;
-    } else {
-      holdQty = (assets[selectedStock] && assets[selectedStock].amount) || 0;
-    }
+    var holding = assets[selectedStock];
+    var holdQty = holding.amount || 0;
     if(holdQty < qty){ showTradeErr("持仓不足！持有 "+holdQty+" 股，欲卖 "+qty+" 股"); return; }
+    holding.amount -= qty;
     cash += (amt - comm);
     s.cash = cash;
-    if(isArray){
-      var sellIdx = findAssetIdx(assets, selectedStock);
-      if(sellIdx >= 0){
-        assets[sellIdx].holding -= qty;
-        if(assets[sellIdx].holding <= 0){ assets[sellIdx].holding = 0; assets[sellIdx].avgCost = 0; }
-      }
-    } else {
-      var holding = assets[selectedStock];
-      holding.amount -= qty;
-      if(holding.amount <= 0){ holding.amount=0; holding.avgCost=0; }
-    }
+    if(holding.amount <= 0){ holding.amount=0; holding.avgCost=0; }
     addOrder({id:Date.now(), side:"sell", stock:selectedStock, name:getStockName(selectedStock), quantity:qty, price:price, commission:comm, round:getRound(), time:Date.now(), account:currentAccount.account});
     sucEl.textContent = "卖出成功！"+qty+" 股 × "+fmt(price)+" = "+fmt(amt)+" （佣金 "+fmt(comm)+"，净收入 "+fmt(amt-comm)+"）"; sucEl.style.display="block";
   }
@@ -433,7 +386,7 @@ function switchTab(name){
 function showDashboard(){
   var s = getState();
   var cash = s.cash || 0;
-  var assets = getAssets();
+  var assets = s.assets;
   var totalVal = 0;
   var todayPL = 0;
   if(assets){
@@ -469,13 +422,13 @@ function renderPositions(){
     var pnl = a.amount * (price - cost);
     var retPct = cost > 0 ? ((price - cost)/cost*100) : 0;
     h += "<tr>";
-    h += "<td>"+getStockName(sk)+"</td>";
+    h += "<td>"+escapeHtml(getStockName(sk))+"</td>";
     h += "<td>"+a.amount+"</td>";
     h += "<td>"+fmt(cost)+"</td>";
     h += "<td>"+fmt(price)+"</td>";
     h += "<td>"+fmt(mktVal)+"</td>";
-    h += '<td class="pos-profit "'+(pnl>=0?"positive":"negative")+"\">"+fmt(pnl)+"</td>";
-    h += '<td class="pos-profit "'+(retPct>=0?"positive":"negative")+"\">"+pct(retPct)+"</td>";
+    h += '<td class="pos-profit '+(pnl>=0?"positive":"negative")+'">'+fmt(pnl)+'</td>';
+    h += '<td class="pos-profit '+(retPct>=0?"positive":"negative")+'">'+pct(retPct)+'</td>';
     h += "</tr>";
   }
   if(!hasPos){ tbody.innerHTML="<tr><td colspan=\"7\" style=\"text-align:center;color:#555;padding:20px;\">暂无持仓</td></tr>"; return; }
@@ -492,8 +445,8 @@ function renderOrders(){
     var d = new Date(o.time);
     var tstr = d.getFullYear()+"/"+("0"+(d.getMonth()+1)).slice(-2)+"/"+("0"+d.getDate()).slice(-2)+" "+("0"+d.getHours()).slice(-2)+":"+("0"+d.getMinutes()).slice(-2);
     h += '<div class="order-item">';
-    h += '<div class="order-header"><span class="order-type "'+o.side+'">'+(isBuy?"买入":"卖出")+'</span><span class="order-amount">'+fmt(o.quantity*o.price)+'</span></div>';
-    h += '<div class="order-detail">'+o.name+' · '+o.quantity+'股 × '+fmt(o.price)+' · 佣金 '+fmt(o.commission)+' · 第'+o.round+'回合 · '+tstr+'</div>';
+    h += '<div class="order-header"><span class="order-type '+o.side+'">'+(isBuy?"买入":"卖出")+'</span><span class="order-amount">'+fmt(o.quantity*o.price)+'</span></div>';
+    h += '<div class="order-detail">'+escapeHtml(o.name)+' · '+o.quantity+'股 × '+fmt(o.price)+' · 佣金 '+fmt(o.commission)+' · 第'+o.round+'回合 · '+tstr+'</div>';
     h += "</div>";
   }
   container.innerHTML = h;

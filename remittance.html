@@ -239,6 +239,11 @@ const REMITTANCE_FEE_RATE = 0.01;
 const REMITTANCE_MIN_FEE = 10;
 
 // ===== 工具函数 =====
+function escapeHtml(str) {
+    var div = document.createElement('div');
+    div.textContent = str || '';
+    return div.innerHTML;
+}
 function getState() {
     try { return JSON.parse(localStorage.getItem('investSimState_v13') || '{}'); }
     catch(e) { return {}; }
@@ -320,21 +325,26 @@ function updateLockBar() {
 function populateCards() {
     const fromSel = document.getElementById('fromCard');
     const toSel = document.getElementById('toCard');
-    const cards = Object.entries(CARD_REGISTRY);
-    let fromHTML = '<option value="">-- 请选择汇出账户 --</option>';
-    let toHTML   = '<option value="">-- 请选择收款账户（仅限香港/英国） --</option>';
-    cards.forEach(([cardNo, info]) => {
+    [fromSel, toSel].forEach(function(sel) { sel.innerHTML = ''; });
+    var fromPlaceholder = document.createElement('option');
+    fromPlaceholder.value = ''; fromPlaceholder.textContent = '-- 请选择汇出账户 --';
+    fromSel.appendChild(fromPlaceholder);
+    var toPlaceholder = document.createElement('option');
+    toPlaceholder.value = ''; toPlaceholder.textContent = '-- 请选择收款账户（仅限香港/英国） --';
+    toSel.appendChild(toPlaceholder);
+    Object.entries(CARD_REGISTRY).forEach(function(entry) {
+        var cardNo = entry[0], info = entry[1];
         const bank = BANKS[info.bank];
         const regionLabel = bank && bank.region === 'hongkong' ? '🇭🇰 香港' : bank && bank.region === 'uk' ? '🇬🇧 英国' : '🇨🇳 内地';
         const label = (info.holder || '') + ' · ' + (bank ? bank.name : '') + ' · ' + regionLabel + ' · ' + cardNo.slice(0,4) + '****' + cardNo.slice(-4);
-        fromHTML += '<option value="' + cardNo + '">' + label + '</option>';
-        // 收款账户仅限香港或英国地区
+        var opt = document.createElement('option');
+        opt.value = cardNo;
+        opt.textContent = label;
+        fromSel.appendChild(opt.cloneNode(true));
         if (bank && (bank.region === 'hongkong' || bank.region === 'uk')) {
-            toHTML += '<option value="' + cardNo + '">' + label + '</option>';
+            toSel.appendChild(opt.cloneNode(true));
         }
     });
-    fromSel.innerHTML = fromHTML;
-    toSel.innerHTML = toHTML;
 }
 
 // ===== 汇出/收款账户变化 =====
@@ -423,8 +433,8 @@ function updatePreview() {
     const insufficient = availBalance < totalDebit;
 
     let html = '';
-    html += '<div class="row"><span class="label">汇出账户</span><span class="value">' + CARD_REGISTRY[fromCard].holder + '</span></div>';
-    html += '<div class="row"><span class="label">收款账户</span><span class="value">' + CARD_REGISTRY[toCard].holder + '</span></div>';
+    html += '<div class="row"><span class="label">汇出账户</span><span class="value">' + escapeHtml(CARD_REGISTRY[fromCard].holder) + '</span></div>';
+    html += '<div class="row"><span class="label">收款账户</span><span class="value">' + escapeHtml(CARD_REGISTRY[toCard].holder) + '</span></div>';
     html += '<hr class="divider">';
     html += '<div class="row"><span class="label">汇款金额</span><span class="value">' + (currency==='CNY'?'¥':currency==='HKD'?'HK$':'$') + amount.toFixed(2) + ' (' + currency + ')</span></div>';
     html += '<div class="row"><span class="label">跨境汇款</span><span class="value" style="color:' + (crossBorder?'#ffd740':'#00e676') + '">' + (crossBorder ? '是 · 手续费 1%' : '否 · 同行免费') + '</span></div>';
@@ -587,8 +597,8 @@ function renderHistory() {
         const statusLabel = r.status === 'done' ? '已到账' : r.status === 'pending' ? '处理中' : '失败';
         html += '<tr>' +
             '<td>' + ds + '</td>' +
-            '<td>' + (fromInfo?fromInfo.holder:'未知') + '</td>' +
-            '<td>' + (toInfo?toInfo.holder:'未知') + '</td>' +
+            '<td>' + escapeHtml(fromInfo?fromInfo.holder:'未知') + '</td>' +
+            '<td>' + escapeHtml(toInfo?toInfo.holder:'未知') + '</td>' +
             '<td>' + (r.currency==='CNY'?'¥':r.currency==='HKD'?'HK$':'$') + (r.amount||0).toFixed(2) + '</td>' +
             '<td class="' + statusCls + '">' + statusLabel + '</td>' +
             '</tr>';

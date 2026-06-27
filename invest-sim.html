@@ -1893,6 +1893,13 @@
             FireworkSystem.init();
         }
 
+        // ===== XSS 防护工具函数 =====
+        function escapeHtml(str) {
+            var div = document.createElement('div');
+            div.textContent = str || '';
+            return div.innerHTML;
+        }
+
             // ===== 投资模拟平台核心逻辑 =====
             class InvestmentSimulator {
             constructor() {
@@ -2937,7 +2944,7 @@
                 if (!container) return;
                 container.innerHTML = this.savedContacts.map((c, i) => {
                     const bankTags = c.accounts.map(a =>
-                        '<span class="transfer-contact-bank-tag">' + a.bank + ' ****' + a.card.slice(-4) + '</span>'
+                        '<span class="transfer-contact-bank-tag">' + escapeHtml(a.bank) + ' ****' + a.card.slice(-4) + '</span>'
                     ).join('');
                     const isMulti = c.accounts.length > 1;
                     // 多账户时渲染可展开的账户选择列表
@@ -2954,7 +2961,7 @@
                                 const creditClass = credit >= 0.8 ? 'high' : (credit >= 0.3 ? 'mid' : (credit > 0.1 ? 'low' : 'frozen'));
                                 const creditText = credit <= 0.1 ? '冻结' : credit.toFixed(1);
                                 return '<div class="transfer-account-option" data-idx="' + i + '" data-acc="' + ai + '">' +
-                                    '<span class="acc-bank">' + displayName + '</span>' +
+                                    '<span class="acc-bank">' + escapeHtml(displayName) + '</span>' +
                                     '<span class="acc-card">' + fmtCard + '</span>' +
                                     '<span class="acc-balance">¥' + bal.toFixed(2) + '</span>' +
                                     '<span class="acc-credit ' + creditClass + '">信用 ' + creditText + '</span>' +
@@ -2967,7 +2974,7 @@
                         : '';
                     return '<div class="transfer-contact-card' + (this.selectedContact === i ? ' active' : '') +
                         '" data-index="' + i + '" data-multi="' + isMulti + '">' +
-                        '<div class="transfer-contact-name">' + c.name + '</div>' +
+                        '<div class="transfer-contact-name">' + escapeHtml(c.name) + '</div>' +
                         '<div class="transfer-contact-banks">' + bankTags + '</div>' +
                         hint + accountList +
                     '</div>';
@@ -3230,12 +3237,12 @@
                         : r.bankCard;
                     return '<div class="transfer-record-item">' +
                         '<div class="record-header">' +
-                            '<span class="record-name">' + icon + ' ' + dirText + ' - ' + r.name + '</span>' +
+                            '<span class="record-name">' + icon + ' ' + dirText + ' - ' + escapeHtml(r.name) + '</span>' +
                             '<span class="record-amount ' + (isIn ? 'in' : 'out') + '">' +
                                 (isIn ? '+' : '-') + '¥' + r.amount.toFixed(2) +
                             '</span>' +
                         '</div>' +
-                        '<div class="record-bank">' + r.bankType + ' | ' + maskedCard + '</div>' +
+                        '<div class="record-bank">' + escapeHtml(r.bankType) + ' | ' + maskedCard + '</div>' +
                         '<div class="record-time">' + timeStr + ' | 手续费 ¥' + (r.fee || 0).toFixed(2) + ' | 账户 ¥' + r.balance.toFixed(2) + ' | 卡余额 ¥' + (r.cardBalance != null ? r.cardBalance.toFixed(2) : '-') + (r.creditChanged ? ' | 信用 ' + (r.credit != null ? r.credit.toFixed(1) : '-') : '') + '</div>' +
                     '</div>';
                 }).join('');

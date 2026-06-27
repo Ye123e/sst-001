@@ -1,3 +1,14 @@
+---
+AIGC:
+    Label: "1"
+    ContentProducer: 001191440300708461136T1XGW3
+    ProduceID: 055d518183522b8e89c310c488631038_a9fa14cf722411f1986d525400d9a7a1
+    ReservedCode1: +0OLPC3GSdMlxABNW9rRFalB+dWNk+fpFc5R0CWi4myPCPfUaWN9OTSObNSV5xJuG6aL2QmEU/RKrftBPpLROoJqa0qIqr2IKfrnzPs9ProIxEvRIx1szcc/PaTV3Kln8azDbfsabyx/HaFSA/adMbqeJdIu4K/JWVsjW2Wfm4rbxvprITPw2Tun8QY=
+    ContentPropagator: 001191440300708461136T1XGW3
+    PropagateID: 055d518183522b8e89c310c488631038_a9fa14cf722411f1986d525400d9a7a1
+    ReservedCode2: +0OLPC3GSdMlxABNW9rRFalB+dWNk+fpFc5R0CWi4myPCPfUaWN9OTSObNSV5xJuG6aL2QmEU/RKrftBPpLROoJqa0qIqr2IKfrnzPs9ProIxEvRIx1szcc/PaTV3Kln8azDbfsabyx/HaFSA/adMbqeJdIu4K/JWVsjW2Wfm4rbxvprITPw2Tun8QY=
+---
+
 # 投资模拟平台（Investment Simulator）
 
 一个融合**金融投资模拟**与**黑客世界**的纯前端双轨沙盒游戏。玩家在合规金融体系（银行、P2P、券商、保险）中积累资本，同时可潜入暗网黑客子世界，通过漏洞利用、暗网交易、世界服务器渗透等非对称手段影响全局经济。
@@ -202,3 +213,4 @@ python gen_vpn.py
 ```
 
 生成器读取内嵌的 HTML 模板与银行/产品数据，输出完整的独立 HTML 文件到当前目录。
+*（内容由AI生成，仅供参考）*

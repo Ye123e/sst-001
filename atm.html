@@ -273,6 +273,8 @@ function checkMasterLock() {
     return true;
 }
 
+function escapeHtml(str) { var d = document.createElement('div'); d.textContent = str || ''; return d.innerHTML; }
+
 function formatBalance(card) {
     // 返回多币种余额显示字符串
     const s = getState();

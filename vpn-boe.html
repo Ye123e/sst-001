@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>HSBC UK - 内部VPN网络</title>
+<title>英格兰银行 - 内部VPN网络</title>
 <style>
 * { margin:0; padding:0; box-sizing:border-box; }
 body {
@@ -79,7 +79,7 @@ body::after {
 .lock-node { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 56px; }
 .lock-icon { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; border: 2px solid; }
 .lock-icon.master { background: rgba(0,230,118,0.1); border-color: rgba(0,230,118,0.4); color: #00e676; }
-.lock-icon.vpn-auth { background: #db001120; border-color: #db001155; color: #db0011; }
+.lock-icon.vpn-auth { background: #8b000020; border-color: #8b000055; color: #8b0000; }
 .lock-icon.data { background: rgba(255,193,7,0.1); border-color: rgba(255,193,7,0.4); color: #ffc107; }
 .lock-icon.offline { background: rgba(255,82,82,0.1); border-color: rgba(255,82,82,0.4); color: #ff5252; animation: pulse-red 1.5s infinite; }
 @keyframes pulse-red { 0%,100%{opacity:1} 50%{opacity:0.4} }
@@ -182,13 +182,13 @@ body::after {
 <body>
 <div class="vpn-container">
   <div class="vpn-header">
-    <span class="vpn-header-icon">🌏</span>
-    <span class="vpn-header-text">HSBC UK | VPN</span>
+    <span class="vpn-header-icon">ENG</span>
+    <span class="vpn-header-text">英格兰银行 | VPN</span>
     <span class="vpn-header-status" id="headerStatus">OFFLINE</span>
   </div>
   <div class="vpn-screen" id="loginScreen">
-    <div class="login-title">🔒 HSBC UK 内部网络</div>
-    <div class="login-subtitle">HSBC UK | Secure VPN Gateway v2.6</div>
+    <div class="login-title">🔒 英格兰银行 内部网络</div>
+    <div class="login-subtitle">Bank of England | Secure VPN Gateway v2.6</div>
     <div class="lock-chain" id="lockChain">
       <div class="lock-node"><div class="lock-icon offline" id="vpnIcon">V</div><span class="lock-label">VPN认证</span></div>
       <span class="lock-arrow">→</span>
@@ -221,18 +221,18 @@ body::after {
     <div id="panel-breach" class="tab-panel"></div>
   </div>
   <div class="vpn-footer">
-VPN-GW/HSBC_UK v2.6 | ENC:AES-256 | HSBC_UK-SEC
+VPN-GW/Bank_of_England v2.6 | ENC:AES-256 | BOE-SEC
   </div>
 </div>
 <script>
-const BANK_KEY = 'hsbc_uk';
-const BANK_NAME = 'HSBC UK';
-const BANK_EN = 'HSBC UK';
+const BANK_KEY = 'boe';
+const BANK_NAME = '英格兰银行';
+const BANK_EN = 'Bank of England';
 // VPN credentials verified via state.vpnCredentials (bank attack system)
 // VPN password stored in state.vpnCredentials (no hardcoded credentials)
 const STORAGE_KEY = 'investSimState_v13';
 const MASTER_KEY = 'invest_sim_master';
-const BANK_CARDS = [{"card": "8793400209413219531", "holder": "叶珒铭", "label": ""}, {"card": "8793403509413219531", "holder": "叶珒铭", "label": ""}];
+const BANK_CARDS = [{"card": "62193400809416219531", "holder": "叶珒铭", "label": ""}, {"card": "62193401309416219531", "holder": "叶珒铭", "label": ""}];
 let isLoggedIn = false;
 let refreshTimer = null;
 

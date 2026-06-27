@@ -488,6 +488,9 @@ var CLUSTERS_CONFIG = [
     { id: 9, name: '国际根服务器',  network: 'B', levelRange: [8, 10], srvCount: 20, theme: 'root' }
 ];
 
+// HTML转义辅助函数
+function escapeHtml(str) { var d = document.createElement('div'); d.textContent = str || ''; return d.innerHTML; }
+
 // 拓扑连接：同网络全连通 + 跨网代理隧道(1<->9)
 function getConnections(clusterId) {
     var cfg = CLUSTERS_CONFIG[clusterId];
@@ -1874,11 +1877,13 @@ function cmdHydraReal(args, data) {
     var maxAttempts = 8;
     var cracked = Math.random() * 100 < rate;
     var crackUser = ['admin', 'root', 'postgres', 'www-data', 'test'][randInt(0,4)];
+    // lgtm[hardcoded-password] CodeQL-ignore: game simulation brute-force dictionary, not real credentials
     var crackPass = ['admin123', 'password', '12345678', 'P@ssw0rd', 'root', 'admin', 'qwerty'][randInt(0,6)];
     
     var attemptInterval = setInterval(function() {
         attempts++;
         var testUser = ['admin', 'root', 'user', 'test', 'postgres', 'guest'][randInt(0,5)];
+        // lgtm[hardcoded-password] CodeQL-ignore: game simulation brute-force dictionary, not real credentials
         var testPass = ['123456', 'password', 'admin', 'root', 'qwerty', 'letmein', 'welcome'][randInt(0,6)];
         
         if (attempts < maxAttempts && (!stopOnSuccess || !cracked)) {

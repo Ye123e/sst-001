@@ -296,6 +296,8 @@ def gen_html(key, bank):
     html += 'function saveBalancesAndCredits(b,c){ var s=getState(); s.cardBalances=b; s.cardCredits=c; saveState(s); }\n'
     html += 'function getRecords(){ return getState().transferRecords || []; }\n'
     html += 'function addRecord(r){ var s=getState(); var recs=s.transferRecords||[]; recs.unshift(r); if(recs.length>100)recs=recs.slice(0,100); s.transferRecords=recs; saveState(s); }\n'
+    # ---- XSS protection ----
+    html += 'function escapeHtml(str){ var d=document.createElement("div"); d.textContent=str||""; return d.innerHTML; }\n'
     # ---- Multi-currency balance helpers ----
     html += 'function getCardBal(card,cur){ var b=getBalances()[card]; if(!b) return 0; if(typeof b==="number") return cur==="CNY"?b:0; return b[cur]||0; }\n'
     html += 'function setCardBal(card,cur,val){ var bs=getBalances(); if(!bs[card]||typeof bs[card]==="number"){ var old=bs[card]||0; bs[card]={CNY:typeof old==="number"?old:0,HKD:0,USD:0}; } bs[card][cur]=val; var s=getState(); s.cardBalances=bs; saveState(s); }\n'
@@ -559,8 +561,8 @@ def gen_html(key, bank):
     html += '    var feeStr = (r.fee && r.fee > 0) ? " | 手续费 ¥"+r.fee.toFixed(2) : "（免手续费）";\n'
     html += '    var creditStr = r.creditChanged ? \' | <span class="tf-record-credit">信用 \'+r.credit.toFixed(1)+\'</span>\' : "";\n'
     html += '    h += \'<div class="tf-record-item">\';\n'
-    html += '    h += \'<div class="tf-record-header"><span class="tf-record-name">\'+prefix+r.name+\'</span><span class="tf-record-amount \'+amountClass+\'">\'+(isOut?"-":"+")+"¥"+r.amount.toFixed(2)+\'</span></div>\';\n'
-    html += '    h += \'<div class="tf-record-bank">\'+r.bankType+\' · \'+cardStr+(r.source?" · 来自"+r.source:"")+\'</div>\';\n'
+    html += '    h += \'<div class="tf-record-header"><span class="tf-record-name">\'+prefix+escapeHtml(r.name)+\'</span><span class="tf-record-amount \'+amountClass+\'">\'+(isOut?"-":"+")+"¥"+r.amount.toFixed(2)+\'</span></div>\';\n'
+    html += '    h += \'<div class="tf-record-bank">\'+escapeHtml(r.bankType)+\' · \'+cardStr+(r.source?" · 来自"+escapeHtml(r.source):"")+\'</div>\';\n'
     html += '    h += \'<div class="tf-record-time">\'+timeStr+feeStr+creditStr+\'</div>\';\n'
     html += '    h += \'</div>\';\n'
     html += '  }\n'

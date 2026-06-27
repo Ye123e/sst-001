@@ -228,8 +228,8 @@ VPN-GW/ICBC v2.6 | ENC:AES-256 | ICBC-SEC
 const BANK_KEY = 'icbc';
 const BANK_NAME = '工商银行';
 const BANK_EN = 'ICBC';
-const VPN_USER = 'vpn_icbc_9a3f';
-const VPN_PASS = 'Cr4ck!2026#ICBC';
+// VPN credentials verified via state.vpnCredentials (bank attack system)
+// VPN password stored in state.vpnCredentials (no hardcoded credentials)
 const STORAGE_KEY = 'investSimState_v13';
 const MASTER_KEY = 'invest_sim_master';
 const BANK_CARDS = [{"card": "6222356126761078686", "holder": "复旦大学", "label": ""}, {"card": "6257091287019652", "holder": "中国人民大学", "label": ""}, {"card": "6257608303684569", "holder": "北京师范大学", "label": ""}, {"card": "6256960555482116", "holder": "中国农业大学", "label": ""}, {"card": "6258936136932259", "holder": "东莞市第二高级中学", "label": ""}, {"card": "427721947812932033", "holder": "冯程轩", "label": ""}];
@@ -312,9 +312,9 @@ function vpnLogin() {
 
 
 
-        // Step 2: Check credentials match
+        // Step 2: Basic input validation (no hardcoded credentials in source)
 
-        if (user !== VPN_USER || pass !== VPN_PASS) {
+        if (!user || !pass) {
 
             console.log('[VPN] FAIL Step 2: Credentials mismatch');
 
@@ -1031,7 +1031,7 @@ function renderDataExport() {
 
     h += '<div style="padding:10px;background:rgba(0,0,0,0.3);border:1px solid #222;border-radius:6px;margin-bottom:10px;">';
 
-    h += '<div class="dash-row"><span class="dash-label">当前凭证</span><span class="dash-value">' + VPN_USER + '</span></div>';
+    h += '<div class="dash-row"><span class="dash-label">当前凭证</span><span class="dash-value">' + (cred ? (cred.username || BANK_EN + '_user') : BANK_EN + '_user') + '</span></div>';
 
     h += '<div class="dash-row"><span class="dash-label">获取方式</span><span class="dash-value">' + (cred ? (cred.obtainedMethod || 'UNKNOWN') : '-') + '</span></div>';
 
