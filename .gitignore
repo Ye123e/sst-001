@@ -1,0 +1,12 @@
+﻿__pycache__/
+.workbuddy/
+_syntax_check_*.js
+fix_*.js
+add_*.js
+apply_*.js
+rewrite_*.js
+test_fragment*.js
+*.bak
+*.bak2
+nul
+BUG_REPORT_EXPLORE3.md

