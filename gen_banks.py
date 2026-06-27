@@ -1,17 +1,24 @@
 import json
+import os
 
-# VPN credentials (deterministic, shared across bank-attack / vpn pages / invest-sim)
+# VPN credentials (shared across bank-attack / vpn pages / invest-sim)
+# Passwords are read from environment variables to avoid hardcoding secrets.
+# Set the following environment variables before running:
+#   VPN_PASSWORD_ICBC, VPN_PASSWORD_CCB, VPN_PASSWORD_BOC, VPN_PASSWORD_ABC,
+#   VPN_PASSWORD_HSBC, VPN_PASSWORD_HS, VPN_PASSWORD_BOCHK, VPN_PASSWORD_SC,
+#   VPN_PASSWORD_BOE, VPN_PASSWORD_HUK
+# Defaults to empty string if not set.
 vpn_creds = {
-    'icbc':  {'username': 'vpn_icbc_9a3f', 'password': 'Cr4ck!2026#ICBC'},
-    'ccb':   {'username': 'vpn_ccb_7b2e', 'password': 'Cr4ck!2026#CCB'},
-    'boc':   {'username': 'vpn_boc_5d1c', 'password': 'Cr4ck!2026#BOC'},
-    'abc':   {'username': 'vpn_abc_3f8a', 'password': 'Cr4ck!2026#ABC'},
-    'hsbc':  {'username': 'vpn_hsbc_e2b7', 'password': 'Cr4ck!2026#HSBC'},
-    'hangseng': {'username': 'vpn_hs_4c9d', 'password': 'Cr4ck!2026#HS'},
-    'bochk': {'username': 'vpn_bochk_6a5f', 'password': 'Cr4ck!2026#BOCHK'},
-    'sc':    {'username': 'vpn_sc_8e3b', 'password': 'Cr4ck!2026#SC'},
-    'boe':   {'username': 'vpn_boe_1d7e', 'password': 'Cr4ck!2026#BOE'},
-    'hsbc_uk': {'username': 'vpn_huk_0f4c', 'password': 'Cr4ck!2026#HUK'},
+    'icbc':  {'username': 'vpn_icbc_9a3f', 'password': os.environ.get('VPN_PASSWORD_ICBC', '')},
+    'ccb':   {'username': 'vpn_ccb_7b2e', 'password': os.environ.get('VPN_PASSWORD_CCB', '')},
+    'boc':   {'username': 'vpn_boc_5d1c', 'password': os.environ.get('VPN_PASSWORD_BOC', '')},
+    'abc':   {'username': 'vpn_abc_3f8a', 'password': os.environ.get('VPN_PASSWORD_ABC', '')},
+    'hsbc':  {'username': 'vpn_hsbc_e2b7', 'password': os.environ.get('VPN_PASSWORD_HSBC', '')},
+    'hangseng': {'username': 'vpn_hs_4c9d', 'password': os.environ.get('VPN_PASSWORD_HS', '')},
+    'bochk': {'username': 'vpn_bochk_6a5f', 'password': os.environ.get('VPN_PASSWORD_BOCHK', '')},
+    'sc':    {'username': 'vpn_sc_8e3b', 'password': os.environ.get('VPN_PASSWORD_SC', '')},
+    'boe':   {'username': 'vpn_boe_1d7e', 'password': os.environ.get('VPN_PASSWORD_BOE', '')},
+    'hsbc_uk': {'username': 'vpn_huk_0f4c', 'password': os.environ.get('VPN_PASSWORD_HUK', '')},
 }
 
 banks = {
